@@ -22,7 +22,7 @@ import (
 
 const (
 	//~ stationlist string = "/usr/local/share/mpvradio/playlists/radio.m3u"
-	stationlist string = "radio.m3u"
+	stationlist string = "/home/sakai/program/radio.m3u"
 	MPV_SOCKET_PATH string = "/run/mpvsocket"
 	MPVOPTION1     string = "--idle"
 	MPVOPTION2     string = "--input-ipc-server="+MPV_SOCKET_PATH
@@ -55,7 +55,6 @@ type EncoderMode int
 const (
 	encodermode_volume EncoderMode = iota 
 	encodermode_tuning
-	encodermode_alarmset
 )
 	 
 const (
@@ -100,6 +99,7 @@ var (
 	stlist []*StationInfo
 	colon uint8
 	pos int
+	lastpos int
 	radio_enable bool
 	readbuf = make([]byte, mpvIRCbuffsize)
 	mpvprocess *exec.Cmd
@@ -107,23 +107,23 @@ var (
 	display_colon = []uint8{' ',':'}
 	display_sleep = []uint8{' ',' ','S'}
 	display_buff string
-	display_buff_len int8
-	display_buff_pos int8
 	clock_mode uint8
 	alarm_time time.Time
 	tuneoff_time time.Time
 	alarm_set_mode bool
 	alarm_set_pos int
-	errmessage = []string{"HUP             ",
-						"mpv conn error. ",
-						"mpv fault.      ",
-						"                ",
-						"tuning error.   ",
-						"rpio can't open.",
-						"socket not open."}
-	
+
+	errmessage = [][]byte{
+		{0x48,0x55,0x50,0x20,0x20,0x20,0x20,0x20},	// HUP
+		{0x6d,0x70,0x76,0xb4,0xd7,0xb0,0x20,0x20},	// mpvｴﾗｰ
+		{0x6d,0x70,0x76,0xcc,0xab,0xd9,0xc4,0x20},	// mpvﾌｫﾙﾄ 
+		{0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20},	// SPACE16
+		{0x74,0x75,0x6e,0x65,0xb4,0xd7,0xb0,0x20},	// tuneｴﾗｰ
+		{0x72,0x70,0x69,0x6f,0xb4,0xd7,0xb0,0x20},	// rpioｴﾗｰ
+		{0xbf,0xb9,0xaf,0xc4,0xb4,0xd7,0xb0,0x20}}	// ｿｹｯﾄｴﾗｰ 
+ 
 	btnscan = []rpio.Pin{6, 13, 16, 20, 21}	// sel2 mode select re_1 re_2
-	ctrlport = []rpio.Pin{12, 17, 4}	// afamp lcd_reset lcd_backlight 
+	ctrlport = []rpio.Pin{12, 17, 4, 26}	// afamp lcd_reset lcd_backlight btn_led 
 	encoder_mode EncoderMode
 	jst *time.Location
 	lcdbacklight bool
@@ -202,30 +202,14 @@ func mpv_setvol(vol int8) {
 func infoupdate(line uint8, mes *string) {
 	mu.Lock()
 	defer mu.Unlock()
-	display_buff_len = int8(len(*mes))
-	display_buff_pos = 0
-	//~ if display_buff_len >= 17 {
-	if display_buff_len >= 9 {	// aqm0802a
-		if line == 0 {
-			display_buff = *mes + "  " + *mes
-		}
-		//~ lcd.PrintWithPos(0, line, []byte(*mes)[:17])
-		lcd.PrintWithPos(0, line, []byte(*mes)[:9])	// aqm0802a
-	} else {
-		if line == 0 {
-			display_buff = *mes
-		}
-		lcd.PrintWithPos(0, line, []byte(*mes))
+	
+	if line == 0 {
+		display_buff = *mes
 	}
+	lcd.PrintWithPos(0, line, []byte((*mes))[:8])
 }
 
 func btninput(code chan<- ButtonCode) {
-	var (
-		//~ re_count uint8 = 0
-		//~ re_table = []int8{0,1,-1,0,-1,0,0,1,1,0,0,-1,0,-1,1,0}
-		//~ re_old int8 = 0
-		//~ re_now int8 = 0
-	)
 	hold := 0
 	btn_h := btn_station_none
 
@@ -357,6 +341,14 @@ func lcdreset() {
 	rpio.Pin(17).High()
 }
 
+func btn_led_on() {
+	rpio.Pin(26).Low()
+}
+
+func btn_led_off() {
+	rpio.Pin(26).High()
+}
+
 func tune() {
 	var (
 		station_url string
@@ -384,11 +376,13 @@ func tune() {
 	s := fmt.Sprintf("{\"command\": [\"loadfile\",\"%s\"]}\x0a", station_url)
 	mpv_send(s)
 	radio_enable = true	
+	lastpos = pos
 }
 
 func radio_stop() {
 	mpv_send("{\"command\": [\"stop\"]}\x0a")
-	infoupdate(0, &errmessage[SPACE16])
+	stmp := string(errmessage[SPACE16])
+	infoupdate(0, &stmp)
 	afamp_disable()		// AF amp disable
 	radio_enable = false
 }
@@ -399,7 +393,6 @@ func alarm_time_inc() {
 	} else {
 		alarm_time = alarm_time.Add(1*time.Minute)
 	}
-	//~ alarm_time = time.Date(2009, 1, 1, alarm_time.Hour(), alarm_time.Minute(), 0, 0, time.UTC)
 }
 
 func alarm_time_dec() {
@@ -407,9 +400,7 @@ func alarm_time_dec() {
 		// minute 時間が進んでしまうのでhourも補正する
 		alarm_time = alarm_time.Add(59*time.Minute)
 	}
-	// hour
 	alarm_time = alarm_time.Add(23*time.Hour)
-	//~ alarm_time = time.Date(2009, 1, 1, alarm_time.Hour(), alarm_time.Minute(), 0, 0, time.UTC)
 }
 
 func showclock() {
@@ -457,24 +448,8 @@ func showclock() {
 	//~ s := fmt.Sprintf("%c%c %s", al, sl, tm)
 	//~ lcd.PrintWithPos(0, 1, []byte(s))
 	lcd.PrintWithPos(0, 1, bf)
-	
-	// １行目の表示
-	// 文字列があふれる場合はスクロールする
-	//~ if display_buff_len <= 16 {
-	if display_buff_len <= 8 {	// aqm0802a
-		lcd.PrintWithPos(0, 0, []byte(display_buff))
-	} else {
-		if encoder_mode == encodermode_tuning {
-			// 選局操作中はスクロールしない
-			lcd.PrintWithPos(0, 0, []byte(display_buff)[0:9])
-		} else {
-			lcd.PrintWithPos(0, 0, []byte(display_buff)[display_buff_pos:display_buff_pos+9])
-			display_buff_pos++
-			if display_buff_pos >= int8(display_buff_len + 2) {
-				display_buff_pos = 0
-			} 
-		}
-	}
+
+	lcd.PrintWithPos(0, 0, []byte(display_buff))
 }
 
 
@@ -535,16 +510,17 @@ func main() {
 		sn.Low()
 	}
 
-	// OLED or LCD
-	lcdreset()
-	lcdlight_on()
-
 	//~ i2c, err := i2c.New(0x3c, 1)	// aqm1602y (OLED)
 	i2c, err := i2c.New(0x3e, 1)	// aqm0802a
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer i2c.Close()
+
+	// OLED or LCD
+	lcdreset()
+	lcdlight_on()
+
 	//~ lcd = aqm1602y.New(i2c)	// aqm1602y
 	lcd = aqm0802a.New(i2c)
 	lcd.Configure()
@@ -557,16 +533,16 @@ func main() {
 	
 	radiosocket, err := net.Listen("unix", RADIO_SOCKET_PATH)
 	if err != nil {
-		infoupdate(0, &errmessage[ERROR_SOCKET_NOT_OPEN])
-		infoupdate(1, &errmessage[ERROR_HUP])
+		lcd.PrintWithPos(0, 0, errmessage[ERROR_SOCKET_NOT_OPEN])
+		lcd.PrintWithPos(0, 1, errmessage[ERROR_HUP])
 		log.Fatal(err)
 	}
 	defer radiosocket.Close()
 
 	err = mpvprocess.Start()
 	if err != nil {
-		infoupdate(0, &errmessage[ERROR_MPV_FAULT])
-		infoupdate(1, &errmessage[ERROR_HUP])
+		lcd.PrintWithPos(0, 0, errmessage[ERROR_MPV_FAULT])
+		lcd.PrintWithPos(0, 1, errmessage[ERROR_HUP])
 		log.Fatal(err)
 	}
 	
@@ -592,6 +568,7 @@ func main() {
 						log.Println(err)
 					}
 					afamp_disable()		// AF amp disable
+					btn_led_off()
 					lcd.DisplayOff()
 					i2c.Close()
 					lcdlight_off()
@@ -611,8 +588,8 @@ func main() {
 		}
 		time.Sleep(200*time.Millisecond)
 		if i > 60 {
-			infoupdate(0, &errmessage[ERROR_MPV_CONN])
-			infoupdate(1, &errmessage[ERROR_HUP])
+			lcd.PrintWithPos(0, 0, errmessage[ERROR_MPV_CONN])
+			lcd.PrintWithPos(0, 1, errmessage[ERROR_HUP])
 			log.Fatal(err)	// time out
 		}
 	}
@@ -621,13 +598,12 @@ func main() {
 	
 	radio_enable = false
 	pos = 0
+	lastpos = pos
 	volume = 60
 	mpv_setvol(volume)
 	colon = 0
 	clock_mode = clock_mode_normal
 	
-	select_btn_repeat_count := 0
-
 	mode_btn_repeat_count := 0
 	alarm_set_mode = false
 	alarm_set_pos = 0
@@ -635,12 +611,15 @@ func main() {
 	tuneoff_time = time.Unix(0, 0).UTC()
 	btncode := make(chan ButtonCode)
 	display_buff = ""
-	display_buff_pos = 0
+	//~ display_buff_pos = 0
 	encoder_mode = encodermode_volume
+	finetune := 0
+	lastrepeatbutton := btn_station_none
 	
 	go btninput(btncode)
 	go recv_title(radiosocket)
 	
+	btn_led_off()
 	for {
 		select {
 			default:
@@ -676,22 +655,32 @@ func main() {
 						switch {
 							case alarm_set_mode:
 								// アラーム時刻設定
-								alarm_time_inc()
-								showclock()
+								if finetune == 0 {
+									alarm_time_inc()
+									showclock()
+									finetune = 3
+								} else {
+									finetune--
+								}
 							case encoder_mode == encodermode_tuning:
 								// 選局
-								pos++
-								if pos > stlen -1 {
-									pos = 0
+								if finetune == 0 {
+									pos++
+									if pos > stlen -1 {
+										pos = 0
+									}
+									infoupdate(0, &stlist[pos].name)
+									// 一度選局したらその後の入力をしばらく無視する
+									finetune = 5
+								} else {
+									finetune--
 								}
-								infoupdate(0, &stlist[pos].name)
 							default:
 								// 音量調整
 								volume++
 								if volume > 99 {
 									volume = 99
 								}
-								fmt.Println(volume)
 								mpv_setvol(volume)
 							}
 						
@@ -699,45 +688,51 @@ func main() {
 						switch {
 							case alarm_set_mode:
 								// アラーム時刻設定
-								alarm_time_dec()
-								showclock()
+								if finetune == 0 {
+									alarm_time_dec()
+									showclock()
+									finetune = 3
+								} else {
+									finetune--
+								}
 							case encoder_mode == encodermode_tuning:
 								// 選局
-								pos--
-								if pos < 0 {
-									pos = stlen - 1
+								if finetune == 0 {
+									pos--
+									if pos < 0 {
+										pos = stlen - 1
+									}
+									infoupdate(0, &stlist[pos].name)
+									// 一度選局したらその後の入力をしばらく無視する
+									finetune = 5
+								} else {
+									finetune--
 								}
-								infoupdate(0, &stlist[pos].name)
 							default:
 								// 音量調整
 								volume--
 								if volume < 0 {
 									volume = 0
 								}
-								fmt.Println(volume)
 								mpv_setvol(volume)
 						}
 					
 					case (btn_station_sel2|btn_station_repeat):
-						// LCD バックライトの制御
-						if lcdbacklight {
-							lcdlight_off()
-						} else {
-							lcdlight_on()
-						}
+						lastrepeatbutton = btn_station_sel2
 						
 					case btn_station_sel2:
 						// ロータリーエンコーダへの割当機能の変更
-						if radio_enable {
-							if encoder_mode == encodermode_tuning {
+						encoder_mode++
+						encoder_mode &= 1
+						if encoder_mode == encodermode_tuning {
+							btn_led_on()
+						} else {
+							btn_led_off()
+							if lastpos != pos || radio_enable == false {
 								tune()
 							}
 						}
-						encoder_mode++
-						if encoder_mode > encodermode_alarmset {
-							encoder_mode = encodermode_volume
-						}
-						
+
 					case btn_system_shutdown|btn_station_repeat:
 						stmp := "shutdown now    "
 						infoupdate(0, &stmp)
@@ -773,8 +768,6 @@ func main() {
 						}
 						
 					case (btn_station_select|btn_station_repeat):
-						select_btn_repeat_count++
-						fallthrough
 						
 					case btn_station_select:
 						if radio_enable {
@@ -784,9 +777,17 @@ func main() {
 						}
 						
 					case btn_station_repeat_end:
-						select_btn_repeat_count = 0
+						switch lastrepeatbutton {
+							case btn_station_sel2:
+								// LCD バックライトの制御
+								if lcdbacklight {
+									lcdlight_off()
+								} else {
+									lcdlight_on()
+								}
+						}
+						lastrepeatbutton = btn_station_none
 						mode_btn_repeat_count = 0
-						
 				}
 		}
 	}
