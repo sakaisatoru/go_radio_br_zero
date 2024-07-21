@@ -721,18 +721,29 @@ func main() {
 						lastrepeatbutton = btn_station_sel2
 						
 					case btn_station_sel2:
-						// ロータリーエンコーダへの割当機能の変更
-						encoder_mode++
-						encoder_mode &= 1
-						if encoder_mode == encodermode_tuning {
-							btn_led_on()
+						if lcdbacklight == false {
+							// LCDバックライトが消えていれば点ける
+							lcdlight_on ()
 						} else {
-							btn_led_off()
-							if lastpos != pos || radio_enable == false {
-								tune()
+							if radio_enable == false {
+								// ラジオが消されていれば、LCDバックライトを
+								// 消すだけ
+								lcdlight_off ()
+								continue
+							}
+							// ロータリーエンコーダへの割当機能の変更
+							encoder_mode++
+							encoder_mode &= 1
+							if encoder_mode == encodermode_tuning {
+								btn_led_on()
+							} else {
+								btn_led_off()
+								if lastpos != pos || radio_enable == false {
+									tune()
+								}
 							}
 						}
-
+						
 					case btn_system_shutdown|btn_station_repeat:
 						stmp := "shutdown now    "
 						infoupdate(0, &stmp)
@@ -770,21 +781,19 @@ func main() {
 					case (btn_station_select|btn_station_repeat):
 						
 					case btn_station_select:
+						// ロータリーエンコーダの押しボタン
 						if radio_enable {
 							radio_stop()
+							lcdlight_off()
 						} else {
 							tune()
+							lcdlight_on()
 						}
 						
 					case btn_station_repeat_end:
-						switch lastrepeatbutton {
-							case btn_station_sel2:
-								// LCD バックライトの制御
-								if lcdbacklight {
-									lcdlight_off()
-								} else {
-									lcdlight_on()
-								}
+						// 長押し後ボタンを離した時の処理
+						if lastrepeatbutton == btn_station_sel2 {
+							lcdlight_off ()
 						}
 						lastrepeatbutton = btn_station_none
 						mode_btn_repeat_count = 0

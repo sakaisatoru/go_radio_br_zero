@@ -53,3 +53,5 @@ plugin:/radiko.py/RN1
 plugin:/radiko.py/RN2
 #EXTINF:-1,Tokyo / NHK-FM
 plugin:/radiko.py/JOAK-FM
+#EXTINF:-1,Tokyo / NHK R2
+https://radio-stream.nhk.jp/hls/live/2023501/nhkradiruakr2/master48k.m3u8
