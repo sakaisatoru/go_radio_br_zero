@@ -7,17 +7,18 @@ UI（ロータリーエンコーダ＋１ボタン）
 	mpvステータス	イベント	遷移先/動作
 1	off 		click 	2
 				re		予約済		
+				press	poweroff
 				
 2	on			click	3
 				re+		inc volume
 				re-		dec volume
 				press	1		
 				
-3	on 			click	もし選局が動いていたらその局を再生して2へ
+3	no change	click	もし選局が動いていたらその局を再生して2へ
 						そうでなければ 4
 				re+		inc station list
 				re-		dec station list
-				press	1
+				press	1		
 				
 4	no change	press	もしalarmがonなら5
 						そうでなければ2

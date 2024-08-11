@@ -38,7 +38,6 @@ type ButtonCode int
 const (
 	btn_station_none ButtonCode = iota
 	btn_station_sel2
-	btn_station_mode
 	btn_station_select
 	btn_station_re_forward
 	btn_station_re_backward
@@ -63,6 +62,24 @@ const (
 	clock_mode_sleep
 	clock_mode_sleep_alarm
 )
+
+const (
+	state_radio_off int = iota
+	state_volume_controle
+	state_station_tuning
+	state_select_function
+	state_set_alarmtime
+	statelength
+)
+
+type stateEventhandlers struct {
+	cb_click			func()
+	cb_re_cw			func()
+	cb_re_ccw			func()
+	cb_press			func()
+	startup				func()
+	beforetransition 	func()
+} 
 
 type StationInfo struct {
 	name string
@@ -110,7 +127,6 @@ var (
 	clock_mode uint8
 	alarm_time time.Time
 	tuneoff_time time.Time
-	alarm_set_mode bool
 	alarm_set_pos int
 
 	errmessage = [][]byte{
@@ -122,11 +138,13 @@ var (
 		{0x72,0x70,0x69,0x6f,0xb4,0xd7,0xb0,0x20},	// rpioｴﾗｰ
 		{0xbf,0xb9,0xaf,0xc4,0xb4,0xd7,0xb0,0x20}}	// ｿｹｯﾄｴﾗｰ 
  
-	btnscan = []rpio.Pin{6, 5, 16, 20, 21}	// sel2 mode select re_1 re_2
-	ctrlport = []rpio.Pin{12, 17, 4, 26}	// afamp lcd_reset lcd_backlight btn_led 
-	encoder_mode EncoderMode
+	btnscan = []rpio.Pin{6, 16, 20, 21}	// sel2  select re_1 re_2
+	ctrlport = []rpio.Pin{12, 17, 4, 26, 5}	// afamp lcd_reset lcd_backlight btn_led1 btn_led2 
 	jst *time.Location
 	lcdbacklight bool
+	
+	statefunc [statelength]stateEventhandlers
+	statepos int
 )
 
 func setup_station_list() int {
@@ -216,49 +234,49 @@ func btninput(code chan<- ButtonCode) {
 	for {
 		time.Sleep(5*time.Millisecond)
 		// ロータリーエンコーダ
-		b4 := btnscan[4].Read()
-		b3 := btnscan[3].Read()
+		b4 := btnscan[3].Read()
+		b3 := btnscan[2].Read()
 		//~ b3 ^= b4	// 0,1,3,2 -> 0,1,2,3
 		re_tmp := 0
 		switch (b4 << 1 | b3) {
 			case 0:
-				if btnscan[4].EdgeDetected() {
+				if btnscan[3].EdgeDetected() {
+					re_tmp += 1
+				}
+				if btnscan[2].EdgeDetected() {
+					re_tmp += -1
+				}
+				btnscan[2].Detect(rpio.RiseEdge)
+				btnscan[3].Detect(rpio.RiseEdge)
+			case 1:
+				if btnscan[2].EdgeDetected() {
 					re_tmp += 1
 				}
 				if btnscan[3].EdgeDetected() {
 					re_tmp += -1
 				}
 				btnscan[3].Detect(rpio.RiseEdge)
-				btnscan[4].Detect(rpio.RiseEdge)
-			case 1:
-				if btnscan[3].EdgeDetected() {
-					re_tmp += 1
-				}
-				if btnscan[4].EdgeDetected() {
-					re_tmp += -1
-				}
-				btnscan[4].Detect(rpio.RiseEdge)
-				btnscan[3].Detect(rpio.FallEdge)
+				btnscan[2].Detect(rpio.FallEdge)
 			//~ case 2:
 			case 3:
-				if btnscan[4].EdgeDetected() {
+				if btnscan[3].EdgeDetected() {
+					re_tmp += 1
+				}
+				if btnscan[2].EdgeDetected() {
+					re_tmp += -1
+				}
+				btnscan[2].Detect(rpio.FallEdge)
+				btnscan[3].Detect(rpio.FallEdge)
+			//~ case 3:
+			case 2:
+				if btnscan[2].EdgeDetected() {
 					re_tmp += 1
 				}
 				if btnscan[3].EdgeDetected() {
 					re_tmp += -1
 				}
 				btnscan[3].Detect(rpio.FallEdge)
-				btnscan[4].Detect(rpio.FallEdge)
-			//~ case 3:
-			case 2:
-				if btnscan[3].EdgeDetected() {
-					re_tmp += 1
-				}
-				if btnscan[4].EdgeDetected() {
-					re_tmp += -1
-				}
-				btnscan[4].Detect(rpio.FallEdge)
-				btnscan[3].Detect(rpio.RiseEdge)
+				btnscan[2].Detect(rpio.RiseEdge)
 		}
 		switch re_tmp {
 			case 1:
@@ -287,12 +305,6 @@ func btninput(code chan<- ButtonCode) {
 							// 引き続き押されている
 							hold++
 							if hold > btn_press_long_width {
-								if btn_h == btn_station_mode {
-									// mode と selectの同時押しの特殊処理
-									if btnscan[btn_station_select-1].Read() == rpio.Low { 
-										btn_h = btn_system_shutdown
-									}
-								}
 								// リピート入力
 								// 表示が追いつかないのでリピート幅を調整すること
 								hold--
@@ -341,12 +353,20 @@ func lcdreset() {
 	rpio.Pin(17).High()
 }
 
-func btn_led_on() {
+func btn_led1_on() {
 	rpio.Pin(26).Low()
 }
 
-func btn_led_off() {
+func btn_led1_off() {
 	rpio.Pin(26).High()
+}
+
+func btn_led2_on() {
+	rpio.Pin(5).Low()
+}
+
+func btn_led2_off() {
+	rpio.Pin(5).High()
 }
 
 func tune() {
@@ -355,6 +375,9 @@ func tune() {
 		err error = nil
 	)
 	infoupdate(0, &stlist[pos].name)
+	if radio_enable && lastpos == pos {
+		return
+	}
 	
 	args := strings.Split(stlist[pos].url, "/")
 	if args[0] == "plugin:" {
@@ -422,7 +445,7 @@ func showclock() {
 	bf = append(bf, al...)
 	bf = append(bf, sl...)
 	
-	if alarm_set_mode {
+	if statepos == state_set_alarmtime {
 		// アラーム時刻編集モード時は時刻表示をアラーム時刻にする
 		if colon == 1 {
 			if alarm_set_pos == 0 {
@@ -568,7 +591,7 @@ func main() {
 						log.Println(err)
 					}
 					afamp_disable()		// AF amp disable
-					btn_led_off()
+					btn_led1_off()
 					lcd.DisplayOff()
 					i2c.Close()
 					lcdlight_off()
@@ -604,27 +627,195 @@ func main() {
 	colon = 0
 	clock_mode = clock_mode_normal
 	
-	mode_btn_repeat_count := 0
-	alarm_set_mode = false
 	alarm_set_pos = 0
 	alarm_time = time.Unix(0, 0).UTC()
 	tuneoff_time = time.Unix(0, 0).UTC()
 	btncode := make(chan ButtonCode)
 	display_buff = ""
 	//~ display_buff_pos = 0
-	encoder_mode = encodermode_volume
 	finetune := 0
-	lastrepeatbutton := btn_station_none
 	
 	go btninput(btncode)
 	go recv_title(radiosocket)
+
+	// 各ステートにおけるコールバック
 	
-	btn_led_off()
+	// ラジオオフ（初期状態）
+	statefunc[state_radio_off].cb_click = func() {
+			statefunc[state_radio_off].beforetransition()
+			statepos = state_volume_controle
+			statefunc[state_volume_controle].startup()
+	}
+	statefunc[state_radio_off].cb_re_cw = func() {
+			lcdlight_on() 
+	}
+	statefunc[state_radio_off].cb_re_ccw = func() {
+			lcdlight_off() 
+	}
+	statefunc[state_radio_off].cb_press = func() {
+			stmp := "shutdown"
+			infoupdate(0, &stmp)
+			afamp_disable()
+			time.Sleep(700*time.Millisecond)
+			cmd := exec.Command("/sbin/poweroff", "")
+			cmd.Start()
+	}
+	statefunc[state_radio_off].startup = func() {
+			btn_led1_off()
+			btn_led2_off()
+			radio_stop()
+	}
+	statefunc[state_radio_off].beforetransition = func() {}
+
+	// 音量調整（ラジオオン）
+	statefunc[state_volume_controle].cb_click = func() {
+			statefunc[state_volume_controle].beforetransition()
+			statepos = state_station_tuning
+			statefunc[state_station_tuning].startup()
+	}
+	statefunc[state_volume_controle].cb_re_cw = func() {
+			volume++
+			if volume > 99 {
+				volume = 99
+			}
+			mpv_setvol(volume)
+	}
+	statefunc[state_volume_controle].cb_re_ccw = func() {
+			volume--
+			if volume < 0 {
+				volume = 0
+			}
+			mpv_setvol(volume)
+	}
+	statefunc[state_volume_controle].cb_press = func() {
+			statefunc[state_volume_controle].beforetransition()
+			statepos = state_radio_off
+			statefunc[state_radio_off].startup()
+	}
+	statefunc[state_volume_controle].startup = func() {
+			btn_led1_on()
+			tune()
+	}
+	statefunc[state_volume_controle].beforetransition = func() {
+			btn_led1_off()
+	}
+
+	// 選局
+	statefunc[state_station_tuning].cb_click = func() {
+			tune()
+			statefunc[state_station_tuning].beforetransition()
+			statepos = state_volume_controle
+			statefunc[state_volume_controle].startup()
+	}
+	statefunc[state_station_tuning].cb_re_cw = func() {
+			if finetune == 0 {
+				pos++
+				if pos > stlen -1 {
+					pos = 0
+				}
+				infoupdate(0, &stlist[pos].name)
+				// 一度選局したらその後の入力をしばらく無視する
+				finetune = 5
+			} else {
+				finetune--
+			}
+	}
+	statefunc[state_station_tuning].cb_re_ccw = func() {
+			if finetune == 0 {
+				pos--
+				if pos < 0 {
+					pos = stlen - 1
+				}
+				infoupdate(0, &stlist[pos].name)
+				// 一度選局したらその後の入力をしばらく無視する
+				finetune = 5
+			} else {
+				finetune--
+			}
+	}
+	statefunc[state_station_tuning].cb_press = func() {
+			//~ statepos = state_radio_off
+			//~ statefunc[state_radio_off].startup()
+			statefunc[state_station_tuning].beforetransition()
+			statepos = state_select_function
+			statefunc[state_select_function].startup()
+	}
+	statefunc[state_station_tuning].startup = func() {
+			btn_led2_on()
+	}
+	statefunc[state_station_tuning].beforetransition = func() {
+			btn_led2_off()
+	}
+
+	// アラーム・スリープの設定
+	statefunc[state_select_function].cb_click = func() {
+			clock_mode++
+			clock_mode &= 3
+			if (clock_mode & clock_mode_sleep) != 0 {
+				// スリープ時刻の設定を行う
+				tuneoff_time = time.Now().In(jst).Add(30*time.Minute)	// Local().
+			}
+			if clock_mode == 0 {
+				statefunc[state_select_function].beforetransition()
+				statepos = state_set_alarmtime
+				statefunc[state_set_alarmtime].startup()
+			}
+	}
+	statefunc[state_select_function].cb_re_cw = func() {}
+	statefunc[state_select_function].cb_re_ccw = func() {}
+	statefunc[state_select_function].cb_press = func() {
+			statefunc[state_select_function].beforetransition()
+			statepos = state_volume_controle
+			statefunc[state_volume_controle].startup()
+	}
+	statefunc[state_select_function].startup = func() {
+			btn_led1_on()
+			btn_led2_on()
+	}
+	statefunc[state_select_function].beforetransition = func() {
+			btn_led1_off()
+			btn_led2_off()
+	}
+
+	// アラーム時刻の設定
+	statefunc[state_set_alarmtime].cb_click = func() {
+			alarm_set_pos++
+			if alarm_set_pos >= 2 {
+				statefunc[state_set_alarmtime].beforetransition()
+				statepos = state_select_function
+				statefunc[state_select_function].startup()	
+			}
+	}
+	statefunc[state_set_alarmtime].cb_re_cw = func() {
+			if finetune == 0 {
+				alarm_time_inc()
+				showclock()
+				finetune = 3
+			} else {
+				finetune--
+			}
+	}
+	statefunc[state_set_alarmtime].cb_re_ccw = func() {
+			if finetune == 0 {
+				alarm_time_dec()
+				showclock()
+				finetune = 3
+			} else {
+				finetune--
+			}
+	}
+	statefunc[state_set_alarmtime].cb_press = func() {}
+	statefunc[state_set_alarmtime].startup = func() {}
+	statefunc[state_set_alarmtime].beforetransition = func() {}
+
+	statepos = state_radio_off
+	statefunc[statepos].startup()
+	
 	for {
 		select {
 			default:
 				time.Sleep(10*time.Millisecond)
-				if alarm_set_mode == false {
+				if statepos != state_set_alarmtime {
 					if (clock_mode & clock_mode_alarm) != 0 {
 						// アラーム時刻判定
 						nowlocal := time.Now().In(jst)	// Local()
@@ -652,151 +843,18 @@ func main() {
 			case r := <-btncode:
 				switch r {
 					case btn_station_re_forward:	// ロータリーエンコーダ正進
-						switch {
-							case alarm_set_mode:
-								// アラーム時刻設定
-								if finetune == 0 {
-									alarm_time_inc()
-									showclock()
-									finetune = 3
-								} else {
-									finetune--
-								}
-							case encoder_mode == encodermode_tuning:
-								// 選局
-								if finetune == 0 {
-									pos++
-									if pos > stlen -1 {
-										pos = 0
-									}
-									infoupdate(0, &stlist[pos].name)
-									// 一度選局したらその後の入力をしばらく無視する
-									finetune = 5
-								} else {
-									finetune--
-								}
-							default:
-								// 音量調整
-								volume++
-								if volume > 99 {
-									volume = 99
-								}
-								mpv_setvol(volume)
-							}
+						statefunc[statepos].cb_re_cw()
 						
 					case btn_station_re_backward:	// ロータリーエンコーダ逆進
-						switch {
-							case alarm_set_mode:
-								// アラーム時刻設定
-								if finetune == 0 {
-									alarm_time_dec()
-									showclock()
-									finetune = 3
-								} else {
-									finetune--
-								}
-							case encoder_mode == encodermode_tuning:
-								// 選局
-								if finetune == 0 {
-									pos--
-									if pos < 0 {
-										pos = stlen - 1
-									}
-									infoupdate(0, &stlist[pos].name)
-									// 一度選局したらその後の入力をしばらく無視する
-									finetune = 5
-								} else {
-									finetune--
-								}
-							default:
-								// 音量調整
-								volume--
-								if volume < 0 {
-									volume = 0
-								}
-								mpv_setvol(volume)
-						}
-					
-					case (btn_station_sel2|btn_station_repeat):
-						lastrepeatbutton = btn_station_sel2
-						
-					case btn_station_sel2:
-						if lcdbacklight == false {
-							// LCDバックライトが消えていれば点ける
-							lcdlight_on ()
-						} else {
-							if radio_enable == false {
-								// ラジオが消されていれば、LCDバックライトを
-								// 消すだけ
-								lcdlight_off ()
-								continue
-							}
-							// ロータリーエンコーダへの割当機能の変更
-							encoder_mode++
-							encoder_mode &= 1
-							if encoder_mode == encodermode_tuning {
-								btn_led_on()
-							} else {
-								btn_led_off()
-								if lastpos != pos || radio_enable == false {
-									tune()
-								}
-							}
-						}
-						
-					case btn_system_shutdown|btn_station_repeat:
-						stmp := "shutdown now    "
-						infoupdate(0, &stmp)
-						afamp_disable()
-						time.Sleep(700*time.Millisecond)
-						cmd := exec.Command("/sbin/poweroff", "")
-						cmd.Run()
-						
-					case btn_station_mode:
-						if alarm_set_mode {
-							// アラーム設定時は変更桁の遷移を行う
-							alarm_set_pos++
-							if alarm_set_pos >= 2 {
-								alarm_set_mode = false
-							}
-						} else {
-							// 通常時はアラーム、スリープのオンオフを行う
-							clock_mode++
-							clock_mode &= 3
-							if (clock_mode & clock_mode_sleep) != 0 {
-								// スリープ時刻の設定を行う
-								tuneoff_time = time.Now().In(jst).Add(30*time.Minute)	// Local().
-							}
-						}
-						
-					case (btn_station_mode|btn_station_repeat):
-						// alarm set
-						mode_btn_repeat_count++
-						if mode_btn_repeat_count > 2 {
-							// アラーム時刻の設定へ
-							alarm_set_mode = true
-							alarm_set_pos = 0
-						}
+						statefunc[statepos].cb_re_ccw()
+
+					case btn_station_select:		// ロータリーエンコーダのボタン
+						statefunc[statepos].cb_click()
 						
 					case (btn_station_select|btn_station_repeat):
-						
-					case btn_station_select:
-						// ロータリーエンコーダの押しボタン
-						if radio_enable {
-							radio_stop()
-							lcdlight_off()
-						} else {
-							tune()
-							lcdlight_on()
-						}
-						
-					case btn_station_repeat_end:
-						// 長押し後ボタンを離した時の処理
-						if lastrepeatbutton == btn_station_sel2 {
-							lcdlight_off ()
-						}
-						lastrepeatbutton = btn_station_none
-						mode_btn_repeat_count = 0
+
+					case btn_station_repeat_end:	// 長押し後ボタンを離した時の処理
+						statefunc[statepos].cb_press()
 				}
 		}
 	}
