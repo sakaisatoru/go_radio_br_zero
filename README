@@ -2,8 +2,35 @@
 
 mpv をバックエンドにしたラジオフロントエンドです。
 
+UI（ロータリーエンコーダ＋１ボタン）
 
-UI
+	mpvステータス	イベント	遷移先/動作
+1	off 		click 	2
+				re		予約済		
+				
+2	on			click	3
+				re+		inc volume
+				re-		dec volume
+				press	1		
+				
+3	on 			click	もし選局が動いていたらその局を再生して2へ
+						そうでなければ 4
+				re+		inc station list
+				re-		dec station list
+				press	1
+				
+4	no change	press	もしalarmがonなら5
+						そうでなければ2
+				click	alarm on->sleep on->a&s on->off 繰り返し
+
+5	no change	click	alarm 時刻設定桁移動
+						もし分を設定中であれば設定してから4
+						もし時であれば分に移動
+				re+		inc current 
+				re-		dec current
+
+
+UI (ロータリーエンコーダ＋３ボタン）
 表示器　キャラクタLCD　８桁２行		LED(ロータリーエンコーダ内蔵、単色)
 入力部　ロータリーエンコーダ　押し釦(sel2 select mode)
 

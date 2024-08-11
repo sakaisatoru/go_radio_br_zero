@@ -122,7 +122,7 @@ var (
 		{0x72,0x70,0x69,0x6f,0xb4,0xd7,0xb0,0x20},	// rpioｴﾗｰ
 		{0xbf,0xb9,0xaf,0xc4,0xb4,0xd7,0xb0,0x20}}	// ｿｹｯﾄｴﾗｰ 
  
-	btnscan = []rpio.Pin{6, 13, 16, 20, 21}	// sel2 mode select re_1 re_2
+	btnscan = []rpio.Pin{6, 5, 16, 20, 21}	// sel2 mode select re_1 re_2
 	ctrlport = []rpio.Pin{12, 17, 4, 26}	// afamp lcd_reset lcd_backlight btn_led 
 	encoder_mode EncoderMode
 	jst *time.Location
