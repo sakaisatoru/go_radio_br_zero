@@ -698,7 +698,6 @@ func main() {
 
 	// 選局
 	statefunc[state_station_tuning].cb_click = func() {
-			tune()
 			statefunc[state_station_tuning].beforetransition()
 			statepos = state_volume_controle
 			statefunc[state_volume_controle].startup()
@@ -818,7 +817,9 @@ func main() {
 						if alarm_time.Hour() == nowlocal.Hour() &&
 						   alarm_time.Minute() == nowlocal.Minute() {
 							clock_mode ^= clock_mode_alarm
-							tune()
+							statefunc[state_station_tuning].beforetransition()
+							statepos = state_volume_controle
+							statefunc[state_volume_controle].startup()
 						}
 					}
 					if (clock_mode & clock_mode_sleep) != 0 {
@@ -827,7 +828,9 @@ func main() {
 						if tuneoff_time.Hour() == nowlocal.Hour() &&
 						   tuneoff_time.Minute() == nowlocal.Minute() {
 							clock_mode ^= clock_mode_sleep
-							radio_stop()
+							statefunc[state_volume_controle].beforetransition()
+							statepos = state_radio_off
+							statefunc[state_radio_off].startup()
 						}
 					}
 				}
