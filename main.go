@@ -538,7 +538,6 @@ func main() {
 
 	// OLED or LCD
 	lcdreset()
-	lcdlight_on()
 
 	//~ lcd = aqm1602y.New(i2c)	// aqm1602y
 	lcd = aqm0802a.New(i2c)
@@ -623,7 +622,7 @@ func main() {
 	colon = 0
 	clock_mode = clock_mode_normal
 	
-	alarm_set_pos = 0
+	//~ alarm_set_pos = 0
 	alarm_time = time.Unix(0, 0).UTC()
 	tuneoff_time = time.Unix(0, 0).UTC()
 	btncode := make(chan ButtonCode)
@@ -659,6 +658,7 @@ func main() {
 	statefunc[state_radio_off].startup = func() {
 			btn_led1_off()
 			btn_led2_off()
+			lcdlight_off()
 			radio_stop()
 	}
 	statefunc[state_radio_off].beforetransition = func() {}
@@ -730,8 +730,6 @@ func main() {
 			}
 	}
 	statefunc[state_station_tuning].cb_press = func() {
-			//~ statepos = state_radio_off
-			//~ statefunc[state_radio_off].startup()
 			statefunc[state_station_tuning].beforetransition()
 			statepos = state_select_function
 			statefunc[state_select_function].startup()
@@ -801,7 +799,9 @@ func main() {
 			}
 	}
 	statefunc[state_set_alarmtime].cb_press = func() {}
-	statefunc[state_set_alarmtime].startup = func() {}
+	statefunc[state_set_alarmtime].startup = func() {
+			alarm_set_pos = 0
+	}
 	statefunc[state_set_alarmtime].beforetransition = func() {}
 
 	statepos = state_radio_off
