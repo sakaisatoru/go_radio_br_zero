@@ -37,8 +37,7 @@ const (
 type ButtonCode int
 const (
 	btn_station_none ButtonCode = iota
-	btn_station_sel2
-	btn_station_select
+	btn_station_re_button
 	btn_station_re_forward
 	btn_station_re_backward
 	btn_station_repeat_end
@@ -50,12 +49,6 @@ const (
 	btn_press_long_width int = 50
 )
 
-type EncoderMode int
-const (
-	encodermode_volume EncoderMode = iota 
-	encodermode_tuning
-)
-	 
 const (
 	clock_mode_normal uint8 = iota
 	clock_mode_alarm
@@ -109,6 +102,18 @@ const (
 	ERROR_SOCKET_NOT_OPEN
 )
 
+const (
+	pin_re_button 	= 13
+	pin_re_forward	= 19
+	pin_re_backward	= 26
+	
+	pin_afamp		= 12
+	pin_lcd_reset	= 17
+	pin_lcd_backlight = 4
+	pin_re_led1		= 5
+	pin_re_led2		= 6
+)
+
 var (
 	mpv	net.Conn
 	lcd aqm0802a.AQM0802A
@@ -138,8 +143,6 @@ var (
 		{0x72,0x70,0x69,0x6f,0xb4,0xd7,0xb0,0x20},	// rpioｴﾗｰ
 		{0xbf,0xb9,0xaf,0xc4,0xb4,0xd7,0xb0,0x20}}	// ｿｹｯﾄｴﾗｰ 
  
-	btnscan = []rpio.Pin{6, 16, 20, 21}	// sel2  select re_1 re_2
-	ctrlport = []rpio.Pin{12, 17, 4, 26, 5}	// afamp lcd_reset lcd_backlight btn_led1 btn_led2 
 	jst *time.Location
 	lcdbacklight bool
 	
@@ -234,49 +237,49 @@ func btninput(code chan<- ButtonCode) {
 	for {
 		time.Sleep(5*time.Millisecond)
 		// ロータリーエンコーダ
-		b4 := btnscan[3].Read()
-		b3 := btnscan[2].Read()
+		b4 := rpio.Pin(pin_re_forward).Read()
+		b3 := rpio.Pin(pin_re_backward).Read() 
 		//~ b3 ^= b4	// 0,1,3,2 -> 0,1,2,3
 		re_tmp := 0
 		switch (b4 << 1 | b3) {
 			case 0:
-				if btnscan[3].EdgeDetected() {
+				if rpio.Pin(pin_re_forward).EdgeDetected() {
 					re_tmp += 1
 				}
-				if btnscan[2].EdgeDetected() {
+				if rpio.Pin(pin_re_backward).EdgeDetected() {
 					re_tmp += -1
 				}
-				btnscan[2].Detect(rpio.RiseEdge)
-				btnscan[3].Detect(rpio.RiseEdge)
+				rpio.Pin(pin_re_backward).Detect(rpio.RiseEdge)
+				rpio.Pin(pin_re_forward).Detect(rpio.RiseEdge)
 			case 1:
-				if btnscan[2].EdgeDetected() {
+				if rpio.Pin(pin_re_backward).EdgeDetected() {
 					re_tmp += 1
 				}
-				if btnscan[3].EdgeDetected() {
+				if rpio.Pin(pin_re_forward).EdgeDetected() {
 					re_tmp += -1
 				}
-				btnscan[3].Detect(rpio.RiseEdge)
-				btnscan[2].Detect(rpio.FallEdge)
+				rpio.Pin(pin_re_forward).Detect(rpio.RiseEdge)
+				rpio.Pin(pin_re_backward).Detect(rpio.FallEdge)
 			//~ case 2:
 			case 3:
-				if btnscan[3].EdgeDetected() {
+				if rpio.Pin(pin_re_forward).EdgeDetected() {
 					re_tmp += 1
 				}
-				if btnscan[2].EdgeDetected() {
+				if rpio.Pin(pin_re_backward).EdgeDetected() {
 					re_tmp += -1
 				}
-				btnscan[2].Detect(rpio.FallEdge)
-				btnscan[3].Detect(rpio.FallEdge)
+				rpio.Pin(pin_re_backward).Detect(rpio.FallEdge)
+				rpio.Pin(pin_re_forward).Detect(rpio.FallEdge)
 			//~ case 3:
 			case 2:
-				if btnscan[2].EdgeDetected() {
+				if rpio.Pin(pin_re_backward).EdgeDetected() {
 					re_tmp += 1
 				}
-				if btnscan[3].EdgeDetected() {
+				if rpio.Pin(pin_re_forward).EdgeDetected() {
 					re_tmp += -1
 				}
-				btnscan[3].Detect(rpio.FallEdge)
-				btnscan[2].Detect(rpio.RiseEdge)
+				rpio.Pin(pin_re_forward).Detect(rpio.FallEdge)
+				rpio.Pin(pin_re_backward).Detect(rpio.RiseEdge)
 		}
 		switch re_tmp {
 			case 1:
@@ -286,87 +289,77 @@ func btninput(code chan<- ButtonCode) {
 			default:
 		}
 		
-		switch btn_h {
-			case 0:
-				for i, sn := range(btnscan[:btn_station_select]) {
-					// 押されているボタンがあれば、そのコードを保存する
-					if sn.Read() == rpio.Low {
-						btn_h = ButtonCode(i+1)
-						hold = 0
-						break
-					}
+		if btn_h == 0 {
+			if rpio.Pin(pin_re_button).Read() == rpio.Low {
+				// 押されているボタンがあれば、そのコードを保存する
+				btn_h = btn_station_re_button
+				hold = 0
+			}
+		} else {
+			// もし過去に押されていたら、現在それがどうなっているか調べる
+			if rpio.Pin(pin_re_button).Read() == rpio.Low {
+				// 引き続き押されている
+				hold++
+				if hold > btn_press_long_width {
+					// リピート入力
+					// 表示が追いつかないのでリピート幅を調整すること
+					hold--
+					time.Sleep(100*time.Millisecond)
+					code <- (btn_h | btn_station_repeat)
 				}
-
-			// もし過去になにか押されていたら、現在それがどうなっているか調べる
-			default:
-				for i, sn := range(btnscan[:btn_station_select]) {
-					if btn_h == ButtonCode(i+1) {
-						if sn.Read() == rpio.Low {
-							// 引き続き押されている
-							hold++
-							if hold > btn_press_long_width {
-								// リピート入力
-								// 表示が追いつかないのでリピート幅を調整すること
-								hold--
-								time.Sleep(100*time.Millisecond)
-								code <- (btn_h | btn_station_repeat)
-							}
-						} else {
-							if hold >= btn_press_long_width {
-								// リピート入力の終わり
-								code <- btn_station_repeat_end
-							} else if hold > btn_press_width {
-								// ワンショット入力
-								code <- btn_h
-							}
-							btn_h = 0
-							hold = 0
-						}
-						break
-					}
+			} else {
+				if hold >= btn_press_long_width {
+					// リピート入力の終わり
+					code <- btn_station_repeat_end
+				} else if hold > btn_press_width {
+					// ワンショット入力
+					code <- btn_h
 				}
+				btn_h = 0
+				hold = 0
+			}
 		}
 	}
 }
 
 func afamp_enable() {
-	rpio.Pin(12).High()
+	rpio.Pin(pin_afamp).High()
 }
 
 func afamp_disable() {
-	rpio.Pin(12).Low()
+	rpio.Pin(pin_afamp).Low()
 }
 
 func lcdlight_on() {
-	rpio.Pin(4).High()
+	rpio.Pin(pin_lcd_backlight).High()
 	lcdbacklight = true
 }
 
 func lcdlight_off() {
-	rpio.Pin(4).Low()
+	rpio.Pin(pin_lcd_backlight).Low()
 	lcdbacklight = false
 }
 
 func lcdreset() {
-	rpio.Pin(17).Low()
+	rpio.Pin(pin_lcd_reset).Low()
 	time.Sleep(100*time.Millisecond)
-	rpio.Pin(17).High()
+	rpio.Pin(pin_lcd_reset).High()
 }
 
 func btn_led1_on() {
-	rpio.Pin(26).Low()
+	rpio.Pin(pin_re_led1).Low()
 }
 
 func btn_led1_off() {
-	rpio.Pin(26).High()
+	rpio.Pin(pin_re_led1).High()
 }
 
 func btn_led2_on() {
-	rpio.Pin(5).Low()
+	rpio.Pin(pin_re_led2).Low()
 }
 
 func btn_led2_off() {
-	rpio.Pin(5).High()
+	rpio.Pin(pin_re_led2).High()
 }
 
 func tune() {
@@ -523,11 +516,14 @@ func main() {
 		}
 	}
 	defer rpio.Close()
-	for _, sn := range(btnscan) {
+	for _, sn := range([]rpio.Pin{ pin_re_button,
+									pin_re_forward, pin_re_backward}) {
 		sn.Input()
 		sn.PullUp()
 	}
-	for _, sn := range(ctrlport) {
+	for _, sn := range([]rpio.Pin{ pin_afamp, 
+									pin_lcd_reset, pin_lcd_backlight, 
+									pin_re_led1, pin_re_led2}) {
 		sn.Output()
 		sn.PullUp()
 		sn.Low()
@@ -809,7 +805,7 @@ func main() {
 	statefunc[state_set_alarmtime].beforetransition = func() {}
 
 	statepos = state_radio_off
-	statefunc[statepos].startup()
+	statefunc[state_radio_off].startup()
 	
 	for {
 		select {
@@ -848,10 +844,10 @@ func main() {
 					case btn_station_re_backward:	// ロータリーエンコーダ逆進
 						statefunc[statepos].cb_re_ccw()
 
-					case btn_station_select:		// ロータリーエンコーダのボタン
+					case btn_station_re_button:		// ロータリーエンコーダのボタン
 						statefunc[statepos].cb_click()
 						
-					case (btn_station_select|btn_station_repeat):
+					case (btn_station_re_button|btn_station_repeat):
 
 					case btn_station_repeat_end:	// 長押し後ボタンを離した時の処理
 						statefunc[statepos].cb_press()
