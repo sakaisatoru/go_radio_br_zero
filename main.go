@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	//~ stationlist string = "/usr/local/share/mpvradio/playlists/radio.m3u"
 	stationlist string = "/home/sakai/program/radio.m3u"
 	MPV_SOCKET_PATH string = "/run/mpvsocket"
 	MPVOPTION1     string = "--idle"
@@ -46,7 +45,7 @@ const (
 	btn_station_repeat = 0x80
 	
 	btn_press_width int = 5
-	btn_press_long_width int = 50
+	btn_press_long_width int = 25
 )
 
 const (
@@ -144,7 +143,6 @@ var (
 		{0xbf,0xb9,0xaf,0xc4,0xb4,0xd7,0xb0,0x20}}	// ｿｹｯﾄｴﾗｰ 
  
 	jst *time.Location
-	lcdbacklight bool
 	
 	statefunc [statelength]stateEventhandlers
 	statepos int
@@ -235,7 +233,8 @@ func btninput(code chan<- ButtonCode) {
 	btn_h := btn_station_none
 
 	for {
-		time.Sleep(5*time.Millisecond)
+		//~ time.Sleep(5*time.Millisecond)
+		time.Sleep(10*time.Millisecond)
 		// ロータリーエンコーダ
 		b4 := rpio.Pin(pin_re_forward).Read()
 		b3 := rpio.Pin(pin_re_backward).Read() 
@@ -301,19 +300,15 @@ func btninput(code chan<- ButtonCode) {
 				// 引き続き押されている
 				hold++
 				if hold > btn_press_long_width {
-					// リピート入力
-					// 表示が追いつかないのでリピート幅を調整すること
 					hold--
-					time.Sleep(100*time.Millisecond)
-					code <- (btn_h | btn_station_repeat)
+					//~ time.Sleep(100*time.Millisecond)// リピート幅調整用
+					code <- (btn_h | btn_station_repeat) // リピート入力
 				}
 			} else {
 				if hold >= btn_press_long_width {
-					// リピート入力の終わり
-					code <- btn_station_repeat_end
+					code <- btn_station_repeat_end  // リピート入力の終わり(ボタン長押し)
 				} else if hold > btn_press_width {
-					// ワンショット入力
-					code <- btn_h
+					code <- btn_h 					// ワンショット入力
 				}
 				btn_h = 0
 				hold = 0
@@ -332,17 +327,15 @@ func afamp_disable() {
 
 func lcdlight_on() {
 	rpio.Pin(pin_lcd_backlight).High()
-	lcdbacklight = true
 }
 
 func lcdlight_off() {
 	rpio.Pin(pin_lcd_backlight).Low()
-	lcdbacklight = false
 }
 
 func lcdreset() {
 	rpio.Pin(pin_lcd_reset).Low()
-	time.Sleep(100*time.Millisecond)
+	time.Sleep(100*time.Microsecond)
 	rpio.Pin(pin_lcd_reset).High()
 }
 
@@ -587,6 +580,7 @@ func main() {
 					}
 					afamp_disable()		// AF amp disable
 					btn_led1_off()
+					btn_led2_off()
 					lcd.DisplayOff()
 					i2c.Close()
 					lcdlight_off()
@@ -622,12 +616,10 @@ func main() {
 	colon = 0
 	clock_mode = clock_mode_normal
 	
-	//~ alarm_set_pos = 0
 	alarm_time = time.Unix(0, 0).UTC()
 	tuneoff_time = time.Unix(0, 0).UTC()
 	btncode := make(chan ButtonCode)
 	display_buff = ""
-	//~ display_buff_pos = 0
 	finetune := 0
 	
 	go btninput(btncode)
@@ -654,6 +646,11 @@ func main() {
 			time.Sleep(700*time.Millisecond)
 			cmd := exec.Command("/sbin/poweroff", "")
 			cmd.Start()
+			afamp_disable()		// AF amp disable
+			lcd.DisplayOff()
+			i2c.Close()
+			lcdlight_off()
+			os.Exit(0)
 	}
 	statefunc[state_radio_off].startup = func() {
 			btn_led1_off()
@@ -709,8 +706,7 @@ func main() {
 					pos = 0
 				}
 				infoupdate(0, &stlist[pos].name)
-				// 一度選局したらその後の入力をしばらく無視する
-				finetune = 5
+				finetune = 1	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
 			}
@@ -722,8 +718,7 @@ func main() {
 					pos = stlen - 1
 				}
 				infoupdate(0, &stlist[pos].name)
-				// 一度選局したらその後の入力をしばらく無視する
-				finetune = 5
+				finetune = 1	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
 			}
@@ -800,6 +795,8 @@ func main() {
 	statefunc[state_set_alarmtime].cb_press = func() {}
 	statefunc[state_set_alarmtime].startup = func() {
 			alarm_set_pos = 0
+			btn_led1_on()
+			btn_led2_on()
 	}
 	statefunc[state_set_alarmtime].beforetransition = func() {}
 
@@ -817,7 +814,7 @@ func main() {
 						if alarm_time.Hour() == nowlocal.Hour() &&
 						   alarm_time.Minute() == nowlocal.Minute() {
 							clock_mode ^= clock_mode_alarm
-							statefunc[state_station_tuning].beforetransition()
+							statefunc[statepos].beforetransition()
 							statepos = state_volume_controle
 							statefunc[state_volume_controle].startup()
 						}
@@ -828,7 +825,7 @@ func main() {
 						if tuneoff_time.Hour() == nowlocal.Hour() &&
 						   tuneoff_time.Minute() == nowlocal.Minute() {
 							clock_mode ^= clock_mode_sleep
-							statefunc[state_volume_controle].beforetransition()
+							statefunc[statepos].beforetransition()
 							statepos = state_radio_off
 							statefunc[state_radio_off].startup()
 						}
