@@ -355,6 +355,18 @@ func btn_led2_off() {
 	rpio.Pin(pin_re_led2).High()
 }
 
+func radiko_setup() {
+	for _, st := range stlist {
+		args := strings.Split(st.url, "/")
+		if args[0] == "plugin:" {
+			if args[1] == "radiko.py" {
+				_, _ = netradio.Radiko_get_url(args[2])
+				break
+			}
+		}
+	}
+}
+
 func tune() {
 	var (
 		station_url string
@@ -591,6 +603,7 @@ func main() {
 	}()
 	
 	stlen := setup_station_list()
+	go radiko_setup()
 
 	for i := 0; ;i++ {
 		mpv, err = net.Dial("unix", MPV_SOCKET_PATH);
