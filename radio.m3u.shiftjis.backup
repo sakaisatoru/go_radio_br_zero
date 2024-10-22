@@ -1,0 +1,57 @@
+#EXTM3U
+
+#EXTINF:-1,Saitama / ½Ï²Ù×¼Þµ
+mms://hdv.nkansai.tv/smile
+
+#EXTINF:-1,USA / AFN TOKY
+plugin:/afn.py/AFNP_TKO
+#EXTINF:-1,USA / AFN Grav
+plugin:/afn.py/AFN_GRV
+#EXTINF:-1,USA / AFN Joe 
+plugin:/afn.py/AFN_JOEP
+#EXTINF:-1,USA / AFN Hot 
+plugin:/afn.py/AFN_HOTP
+#EXTINF:-1,USA / AFN Lega
+plugin:/afn.py/AFN_LGYP
+
+#EXTINF:-1,radioparadise.com(main mix) / RP main
+http://stream.radioparadise.com/aac-320
+#EXTINF:-1,radioparadise.com(mellow mix) / RP mello
+http://stream.radioparadise.com/mellow-320
+#EXTINF:-1,radioparadise.com(rock mix) / RP rock
+http://stream.radioparadise.com/rock-320
+#EXTINF:-1,radioparadise.com(global mix) / RP globa
+http://stream.radioparadise.com/global-320
+
+#EXTINF:-1,Tokyo / TBS×¼Þµ
+plugin:/radiko.py/TBS
+#EXTINF:-1,Tokyo / ÌÞÝ¶Î³¿³
+plugin:/radiko.py/QRR
+#EXTINF:-1,Tokyo / Æ¯ÎßÝÎ³¿
+plugin:/radiko.py/LFR
+#EXTINF:-1,Tokyo / interfm
+plugin:/radiko.py/INT
+#EXTINF:-1,Tokyo / TOKYO FM
+plugin:/radiko.py/FMT
+#EXTINF:-1,Tokyo / J-WAVE
+plugin:/radiko.py/FMJ
+#EXTINF:-1,Tokyo / JORF
+plugin:/radiko.py/JORF
+#EXTINF:-1,Chiba / bayfm78
+plugin:/radiko.py/BAYFM78
+#EXTINF:-1,Saitama / NACK5
+plugin:/radiko.py/NACK5
+#EXTINF:-1,Kanagawa / FMÖºÊÏ
+plugin:/radiko.py/YFM
+#EXTINF:-1,Ibaraki / LuckyFM
+plugin:/radiko.py/IBS
+#EXTINF:-1,Tokyo / NHK R1
+plugin:/radiko.py/JOAK
+#EXTINF:-1,Tokyo / ×¼ÞµRN1
+plugin:/radiko.py/RN1
+#EXTINF:-1,Tokyo / ×¼ÞµRN2
+plugin:/radiko.py/RN2
+#EXTINF:-1,Tokyo / NHK-FM
+plugin:/radiko.py/JOAK-FM
+#EXTINF:-1,Tokyo / NHK R2
+https://radio-stream.nhk.jp/hls/live/2023501/nhkradiruakr2/master48k.m3u8

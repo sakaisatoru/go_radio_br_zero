@@ -1,6 +1,6 @@
 #EXTM3U
 
-#EXTINF:-1,Saitama / �ϲ�׼޵
+#EXTINF:-1,Saitama / ｽﾏｲﾙﾗｼﾞｵ
 mms://hdv.nkansai.tv/smile
 
 #EXTINF:-1,USA / AFN TOKY
@@ -14,20 +14,35 @@ plugin:/afn.py/AFN_HOTP
 #EXTINF:-1,USA / AFN Lega
 plugin:/afn.py/AFN_LGYP
 
-#EXTINF:-1,radioparadise.com(main mix) / RP main
+#EXTINF:-1,radioparadise.com(main mix) / RP ﾒｲﾝ
 http://stream.radioparadise.com/aac-320
-#EXTINF:-1,radioparadise.com(mellow mix) / RP mello
+#EXTINF:-1,radioparadise.com(mellow mix) / RP ﾒﾛｳ
 http://stream.radioparadise.com/mellow-320
-#EXTINF:-1,radioparadise.com(rock mix) / RP rock
+#EXTINF:-1,radioparadise.com(rock mix) / RP ﾛｯｸ
 http://stream.radioparadise.com/rock-320
-#EXTINF:-1,radioparadise.com(global mix) / RP globa
+#EXTINF:-1,radioparadise.com(global mix) / RPｸﾞﾛｰﾊﾞ
 http://stream.radioparadise.com/global-320
 
-#EXTINF:-1,Tokyo / TBS׼޵
+#EXTINF:-1,klassikradio.de / Klassik
+http://live.streams.klassikradio.de/klassikradio-deutschland/stream/mp3
+#EXTINF:-1,klassikradio.de / Gaming
+http://stream.klassikradio.de/games/mp3-192/
+#EXTINF:-1,klassikradio.de / 60Bar L
+http://stream.klassikradio.de/60iesbl/mp3-192/
+#EXTINF:-1,klassikradio.de / Dinner
+http://stream.klassikradio.de/dinnerjazz/mp3-192/
+#EXTINF:-1,klassikradio.de / Smooth
+http://stream.klassikradio.de/smooth/mp3-192/
+#EXTINF:-1,klassikradio.de / Lounge
+http://stream.klassikradio.de/lounge/mp3-192/
+#EXTINF:-1,klassikradio.de / L.Beat
+https://stream.klassikradio.de/lounge-beat/mp3-192/
+
+#EXTINF:-1,Tokyo / TBSﾗｼﾞｵ
 plugin:/radiko.py/TBS
-#EXTINF:-1,Tokyo / ��ݶγ��
+#EXTINF:-1,Tokyo / ﾌﾞﾝｶﾎｳｿｳ
 plugin:/radiko.py/QRR
-#EXTINF:-1,Tokyo / Ư���γ�
+#EXTINF:-1,Tokyo / ﾆｯﾎﾟﾝﾎｳｿ
 plugin:/radiko.py/LFR
 #EXTINF:-1,Tokyo / interfm
 plugin:/radiko.py/INT
@@ -41,17 +56,17 @@ plugin:/radiko.py/JORF
 plugin:/radiko.py/BAYFM78
 #EXTINF:-1,Saitama / NACK5
 plugin:/radiko.py/NACK5
-#EXTINF:-1,Kanagawa / FMֺ��
+#EXTINF:-1,Kanagawa / FMﾖｺﾊﾏ
 plugin:/radiko.py/YFM
 #EXTINF:-1,Ibaraki / LuckyFM
 plugin:/radiko.py/IBS
+#EXTINF:-1,Tokyo / ﾗｼﾞｵRN1
+plugin:/radiko.py/RN1
+#EXTINF:-1,Tokyo / ﾗｼﾞｵRN2
+plugin:/radiko.py/RN2
 #EXTINF:-1,Tokyo / NHK R1
 plugin:/radiko.py/JOAK
-#EXTINF:-1,Tokyo / ׼޵RN1
-plugin:/radiko.py/RN1
-#EXTINF:-1,Tokyo / ׼޵RN2
-plugin:/radiko.py/RN2
-#EXTINF:-1,Tokyo / NHK-FM
+#EXTINF:-1,Tokyo / NHK FM
 plugin:/radiko.py/JOAK-FM
-#EXTINF:-1,Tokyo / NHK R2
+#EXTINF:-1,Tokyo / NHK R2 
 https://radio-stream.nhk.jp/hls/live/2023501/nhkradiruakr2/master48k.m3u8

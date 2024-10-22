@@ -31,6 +31,7 @@ const (
 	MPVOPTION6	   string = "--script=/home/pi/bin/title_trigger.lua"
 	mpvIRCbuffsize int = 1024
 	RADIO_SOCKET_PATH string = "/run/mpvradio"
+	VERSION			string = "radio v2.1"
 )
 
 type ButtonCode int
@@ -127,20 +128,21 @@ var (
 	volume int8
 	display_colon = []uint8{' ',':'}
 	display_sleep = []uint8{' ',' ','S'}
-	display_buff string
+	display_buff []byte
 	clock_mode uint8
 	alarm_time time.Time
 	tuneoff_time time.Time
 	alarm_set_pos int
 
-	errmessage = [][]byte{
-		{0x48,0x55,0x50,0x20,0x20,0x20,0x20,0x20},	// HUP
-		{0x6d,0x70,0x76,0xb4,0xd7,0xb0,0x20,0x20},	// mpvｴﾗｰ
-		{0x6d,0x70,0x76,0xcc,0xab,0xd9,0xc4,0x20},	// mpvﾌｫﾙﾄ 
-		{0x20,0x20,0x20,0x20,0x20,0x20,0x20,0x20},	// SPACE16
-		{0x74,0x75,0x6e,0x65,0xb4,0xd7,0xb0,0x20},	// tuneｴﾗｰ
-		{0x72,0x70,0x69,0x6f,0xb4,0xd7,0xb0,0x20},	// rpioｴﾗｰ
-		{0xbf,0xb9,0xaf,0xc4,0xb4,0xd7,0xb0,0x20}}	// ｿｹｯﾄｴﾗｰ 
+	errmessage = []string{
+		"HUP",		// HUP
+		"mpv ｴﾗｰ",	//
+		"mpv ﾌｫﾙﾄ",	//
+		"        ",	// SPACE16
+		"tuneｴﾗｰ",	//
+		"rpioｴﾗｰ",	//
+		"ｿｹｯﾄｴﾗｰ"	,	//
+	}
  
 	jst *time.Location
 	
@@ -222,10 +224,15 @@ func infoupdate(line uint8, mes *string) {
 	mu.Lock()
 	defer mu.Unlock()
 	
-	if line == 0 {
-		display_buff = *mes
+	t := []byte(*mes)
+	l := lcd.UTF8toOLED(&t)
+	if l < 8 {
+		t = append(t[:l], []byte("        ")...)[:8]
 	}
-	lcd.PrintWithPos(0, line, []byte((*mes))[:8])
+	if line == 0 {
+		display_buff = t
+	}
+	lcd.PrintWithPos(0, line, t[:8])
 }
 
 func btninput(code chan<- ButtonCode) {
@@ -402,8 +409,8 @@ func tune() {
 
 func radio_stop() {
 	mpv_send("{\"command\": [\"stop\"]}\x0a")
-	stmp := string(errmessage[SPACE16])
-	infoupdate(0, &stmp)
+	//~ stmp := errmessage[SPACE16]
+	infoupdate(0, &errmessage[SPACE16])
 	afamp_disable()		// AF amp disable
 	radio_enable = false
 }
@@ -470,9 +477,8 @@ func showclock() {
 	//~ lcd.PrintWithPos(0, 1, []byte(s))
 	lcd.PrintWithPos(0, 1, bf)
 
-	lcd.PrintWithPos(0, 0, []byte(display_buff))
+	lcd.PrintWithPos(0, 0, display_buff)
 }
-
 
 func recv_title(socket net.Listener) {
 	var stmp string
@@ -547,7 +553,7 @@ func main() {
 	//~ lcd = aqm1602y.New(i2c)	// aqm1602y
 	lcd = aqm0802a.New(i2c)
 	lcd.Configure()
-	lcd.PrintWithPos(0, 0, []byte("radio v2.0"))
+	//~ lcd.PrintWithPos(0, 0, []byte(VERSION))
 
 	jst = time.FixedZone("JST", 9*60*60)
 	mpvprocess = exec.Command("/usr/bin/mpv", 	MPVOPTION1, MPVOPTION2, 
@@ -556,16 +562,16 @@ func main() {
 	
 	radiosocket, err := net.Listen("unix", RADIO_SOCKET_PATH)
 	if err != nil {
-		lcd.PrintWithPos(0, 0, errmessage[ERROR_SOCKET_NOT_OPEN])
-		lcd.PrintWithPos(0, 1, errmessage[ERROR_HUP])
+		infoupdate(0, &errmessage[ERROR_SOCKET_NOT_OPEN])
+		infoupdate(1, &errmessage[ERROR_HUP])
 		log.Fatal(err)
 	}
 	defer radiosocket.Close()
 
 	err = mpvprocess.Start()
 	if err != nil {
-		lcd.PrintWithPos(0, 0, errmessage[ERROR_MPV_FAULT])
-		lcd.PrintWithPos(0, 1, errmessage[ERROR_HUP])
+		infoupdate(0, &errmessage[ERROR_MPV_FAULT])
+		infoupdate(1, &errmessage[ERROR_HUP])
 		log.Fatal(err)
 	}
 	
@@ -613,8 +619,8 @@ func main() {
 		}
 		time.Sleep(200*time.Millisecond)
 		if i > 60 {
-			lcd.PrintWithPos(0, 0, errmessage[ERROR_MPV_CONN])
-			lcd.PrintWithPos(0, 1, errmessage[ERROR_HUP])
+			infoupdate(0, &errmessage[ERROR_MPV_CONN])
+			infoupdate(1, &errmessage[ERROR_HUP])
 			log.Fatal(err)	// time out
 		}
 	}
@@ -632,7 +638,7 @@ func main() {
 	alarm_time = time.Unix(0, 0).UTC()
 	tuneoff_time = time.Unix(0, 0).UTC()
 	btncode := make(chan ButtonCode)
-	display_buff = ""
+	display_buff = []byte(VERSION)
 	finetune := 0
 	
 	go btninput(btncode)
@@ -719,7 +725,7 @@ func main() {
 					pos = 0
 				}
 				infoupdate(0, &stlist[pos].name)
-				finetune = 1	// 一度選局したらその後の入力をしばらく無視する
+				finetune = 3	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
 			}
@@ -731,7 +737,7 @@ func main() {
 					pos = stlen - 1
 				}
 				infoupdate(0, &stlist[pos].name)
-				finetune = 1	// 一度選局したらその後の入力をしばらく無視する
+				finetune = 3	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
 			}
@@ -742,6 +748,7 @@ func main() {
 			statefunc[state_select_function].startup()
 	}
 	statefunc[state_station_tuning].startup = func() {
+			finetune = 3
 			btn_led2_on()
 	}
 	statefunc[state_station_tuning].beforetransition = func() {
