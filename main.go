@@ -12,26 +12,17 @@ import (
 	"net"
 	"time"
 	"sync"
-	//~ "bytes"
-	//~ "encoding/json"
 	"github.com/davecheney/i2c"
 	"github.com/stianeikeland/go-rpio/v4"
 	"local.packages/aqm0802a"
 	"local.packages/netradio"
+	"local.packages/mpvctl"
 )
 
 const (
 	stationlist string = "/home/sakai/program/radio.m3u"
 	MPV_SOCKET_PATH string = "/run/mpvsocket"
-	MPVOPTION1     string = "--idle"
-	MPVOPTION2     string = "--input-ipc-server="+MPV_SOCKET_PATH
-	MPVOPTION3     string = "--no-video"
-	MPVOPTION4     string = "--no-cache"
-	MPVOPTION5     string = "--stream-buffer-size=256KiB"
-	MPVOPTION6	   string = "--script=/home/pi/bin/title_trigger.lua"
-	mpvIRCbuffsize int = 1024
-	RADIO_SOCKET_PATH string = "/run/mpvradio"
-	VERSION			string = "radio v2.1"
+	VERSION			string = "radio v2.2"
 )
 
 type ButtonCode int
@@ -74,24 +65,6 @@ type stateEventhandlers struct {
 	beforetransition 	func()
 } 
 
-type StationInfo struct {
-	name string
-	url string
-}
-
-type MpvIRCdata struct {
-	Filename	*string		`json:"filename"`
-	Current		bool		`json:"current"`
-	Playing		bool		`json:"playing"`
-}
- 
-type mpvIRC struct {
-    Data       	*MpvIRCdata	 `json:"data"`
-	Request_id  *int	 `json:"request_id"`
-    Err 		string	 `json:"error"`
-    Event		string	 `json:"event"`
-}
-
 const (
 	ERROR_HUP = iota
 	ERROR_MPV_CONN
@@ -118,13 +91,11 @@ var (
 	mpv	net.Conn
 	lcd aqm0802a.AQM0802A
 	mu sync.Mutex
-	stlist []*StationInfo
+	stlist []*netradio.StationInfo
 	colon uint8
 	pos int
 	lastpos int
 	radio_enable bool
-	readbuf = make([]byte, mpvIRCbuffsize)
-	mpvprocess *exec.Cmd
 	volume int8
 	display_colon = []uint8{' ',':'}
 	display_sleep = []uint8{' ',' ','S'}
@@ -172,52 +143,18 @@ func setup_station_list() int {
 		if f {
 			if len(s) != 0 {
 				f = false
-				stmp := new(StationInfo)
-				stmp.url = s
-				if len(name) < 8 {	// 表示器の桁数で調整すること
-					stmp.name = string(name+"       ")[:8]	// aqm0802a
+				stmp := new(netradio.StationInfo)
+				stmp.Url = s
+				if len([]rune(name)) < 8 {	// 表示器の桁数で調整すること
+					stmp.Name = string([]rune(name+"       ")[:8])	// aqm0802a
 				} else {
-					stmp.name = name
+					stmp.Name = name
 				}
 				stlist = append(stlist, stmp)
 			}
 		}
 	}
 	return len(stlist)
-}
-
-func mpv_send(s string) {
-	mpv.Write([]byte(s))
-	for {
-		n, err := mpv.Read(readbuf)
-		if err != nil {
-			log.Println(err)
-			break
-		}
-		if n < mpvIRCbuffsize {
-			break
-		}
-	}
-}
-
-var (
-	volconv = []int8{	0,1,2,3,4,4,5,6,6,7,7,8,8,9,9,10,10,11,11,
-						11,12,12,13,13,13,14,14,14,15,15,16,16,16,17,
-						17,17,18,18,18,19,19,20,20,20,21,21,22,22,23,
-						23,24,24,25,25,26,26,27,27,28,28,29,30,30,31,
-						32,32,33,34,35,35,36,37,38,39,40,41,42,43,45,
-						46,47,49,50,52,53,55,57,59,61,63,66,68,71,74,
-						78,81,85,90,95,100}
-)
-
-func mpv_setvol(vol int8) {
-	if vol < 1 {
-		vol = 0
-	} else if vol >= 100 {
-		vol = 99
-	} 
-	s := fmt.Sprintf("{\"command\": [\"set_property\",\"volume\",%d]}\x0a",volconv[vol])
-	mpv_send(s)
 }
 
 func infoupdate(line uint8, mes *string) {
@@ -362,29 +299,17 @@ func btn_led2_off() {
 	rpio.Pin(pin_re_led2).High()
 }
 
-func radiko_setup() {
-	for _, st := range stlist {
-		args := strings.Split(st.url, "/")
-		if args[0] == "plugin:" {
-			if args[1] == "radiko.py" {
-				_, _ = netradio.Radiko_get_url(args[2])
-				break
-			}
-		}
-	}
-}
-
 func tune() {
 	var (
 		station_url string
 		err error = nil
 	)
-	infoupdate(0, &stlist[pos].name)
+	infoupdate(0, &stlist[pos].Name)
 	if radio_enable && lastpos == pos {
 		return
 	}
 	
-	args := strings.Split(stlist[pos].url, "/")
+	args := strings.Split(stlist[pos].Url, "/")
 	if args[0] == "plugin:" {
 		switch args[1] {
 			case "afn.py":
@@ -398,18 +323,17 @@ func tune() {
 			return
 		}
 	} else {
-		station_url = stlist[pos].url
+		station_url = stlist[pos].Url
 	}
 	
 	s := fmt.Sprintf("{\"command\": [\"loadfile\",\"%s\"]}\x0a", station_url)
-	mpv_send(s)
+	mpvctl.Send(s)
 	radio_enable = true	
 	lastpos = pos
 }
 
 func radio_stop() {
-	mpv_send("{\"command\": [\"stop\"]}\x0a")
-	//~ stmp := errmessage[SPACE16]
+	mpvctl.Stop()
 	infoupdate(0, &errmessage[SPACE16])
 	afamp_disable()		// AF amp disable
 	radio_enable = false
@@ -480,38 +404,6 @@ func showclock() {
 	lcd.PrintWithPos(0, 0, display_buff)
 }
 
-func recv_title(socket net.Listener) {
-	var stmp string
-	buf := make([]byte, 1024)
-	for {
-		n := func() int {
-			conn, err := socket.Accept()
-			if err != nil {
-				return 0
-			}
-			defer conn.Close()
-			n := 0
-			for {
-				n, err = conn.Read(buf)
-				if err != nil {
-					return 0
-				}
-				if n < 1024 {
-					break
-				}
-			}
-			conn.Write([]byte("OK\n"))
-			return n
-		}()
-		if radio_enable == true {
-			stmp = stlist[pos].name + "  " + string(buf[:n])
-		} else {
-			stmp = string(buf[:n]) + "  "
-		}
-		infoupdate(0, &stmp)
-	}
-}
-
 func main() {
 	// GPIO initialize
 	for {
@@ -556,19 +448,8 @@ func main() {
 	//~ lcd.PrintWithPos(0, 0, []byte(VERSION))
 
 	jst = time.FixedZone("JST", 9*60*60)
-	mpvprocess = exec.Command("/usr/bin/mpv", 	MPVOPTION1, MPVOPTION2, 
-												MPVOPTION3, MPVOPTION4, 
-												MPVOPTION5) //, MPVOPTION6)
-	
-	radiosocket, err := net.Listen("unix", RADIO_SOCKET_PATH)
-	if err != nil {
-		infoupdate(0, &errmessage[ERROR_SOCKET_NOT_OPEN])
-		infoupdate(1, &errmessage[ERROR_HUP])
-		log.Fatal(err)
-	}
-	defer radiosocket.Close()
 
-	err = mpvprocess.Start()
+	err = mpvctl.Init(MPV_SOCKET_PATH)
 	if err != nil {
 		infoupdate(0, &errmessage[ERROR_MPV_FAULT])
 		infoupdate(1, &errmessage[ERROR_HUP])
@@ -582,18 +463,13 @@ func main() {
 		
 		for {
 			switch <-signals {
-				//~ case syscall.SIGUSR1:
-					//~ stmp := stlist[pos].name + "  " + mpv_get_title ()
-					//~ infoupdate(0, &stmp)
 				case syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGINT:
 					// shutdown this program
-					if err = mpvprocess.Process.Kill();err != nil {
+					mpvctl.Close()
+					if err = mpvctl.Mpvkill();err != nil {
 						log.Println(err)
 					}
 					if err = os.Remove(MPV_SOCKET_PATH);err != nil {
-						log.Println(err)
-					}
-					if err = os.Remove(RADIO_SOCKET_PATH);err != nil {
 						log.Println(err)
 					}
 					afamp_disable()		// AF amp disable
@@ -609,29 +485,36 @@ func main() {
 	}()
 	
 	stlen := setup_station_list()
-	go radiko_setup()
-
-	for i := 0; ;i++ {
-		mpv, err = net.Dial("unix", MPV_SOCKET_PATH);
-		if err == nil {
-			defer mpv.Close()
-			break
-		}
-		time.Sleep(200*time.Millisecond)
-		if i > 60 {
-			infoupdate(0, &errmessage[ERROR_MPV_CONN])
-			infoupdate(1, &errmessage[ERROR_HUP])
-			log.Fatal(err)	// time out
-		}
+	go netradio.Radiko_setup(stlist)
+	
+	if mpvctl.Open(MPV_SOCKET_PATH) != nil {
+		infoupdate(0, &errmessage[ERROR_MPV_CONN])
+		infoupdate(1, &errmessage[ERROR_HUP])
+		log.Fatal(err)	// time out
 	}
 
+	mpvret := make(chan string)
+	go mpvctl.Recv(mpvret, func(ms mpvctl.MpvIRC) (string, bool) {
+			//~ fmt.Printf("%#v\n",ms)
+			if radio_enable {
+				if ms.Event == "property-change" {
+					if ms.Name == "metadata/by-key/icy-title" {
+						return ms.Data, true
+					}
+				}
+			}
+			return "", false
+		})
+	
 	colonblink := time.NewTicker(500*time.Millisecond)
 	
 	radio_enable = false
 	pos = 0
 	lastpos = pos
 	volume = 60
-	mpv_setvol(volume)
+	mpvctl.Setvol(volume)
+	s := "{ \"command\": [\"observe_property_string\", 1, \"metadata/by-key/icy-title\"] }"
+	mpvctl.Send(s)
 	colon = 0
 	clock_mode = clock_mode_normal
 	
@@ -642,7 +525,6 @@ func main() {
 	finetune := 0
 	
 	go btninput(btncode)
-	go recv_title(radiosocket)
 
 	// 各ステートにおけるコールバック
 	
@@ -687,17 +569,17 @@ func main() {
 	}
 	statefunc[state_volume_controle].cb_re_cw = func() {
 			volume++
-			if volume > 99 {
-				volume = 99
+			if volume > mpvctl.Volume_max {
+				volume = mpvctl.Volume_max
 			}
-			mpv_setvol(volume)
+			mpvctl.Setvol(volume)
 	}
 	statefunc[state_volume_controle].cb_re_ccw = func() {
 			volume--
-			if volume < 0 {
-				volume = 0
+			if volume < mpvctl.Volume_min {
+				volume = mpvctl.Volume_min
 			}
-			mpv_setvol(volume)
+			mpvctl.Setvol(volume)
 	}
 	statefunc[state_volume_controle].cb_press = func() {
 			statefunc[state_volume_controle].beforetransition()
@@ -724,7 +606,7 @@ func main() {
 				if pos > stlen -1 {
 					pos = 0
 				}
-				infoupdate(0, &stlist[pos].name)
+				infoupdate(0, &stlist[pos].Name)
 				finetune = 3	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
@@ -736,7 +618,7 @@ func main() {
 				if pos < 0 {
 					pos = stlen - 1
 				}
-				infoupdate(0, &stlist[pos].name)
+				infoupdate(0, &stlist[pos].Name)
 				finetune = 3	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
@@ -851,6 +733,15 @@ func main() {
 						}
 					}
 				}
+
+			case title := <-mpvret:
+				// mpv の応答でフィルタで処理された文字列をここで処理する
+				//~ stmp := stlist[pos].Name
+				//~ if title != "" {
+					//~ stmp = stmp + "  " + title
+				//~ }
+				//~ infoupdate(0, stmp)
+				fmt.Printf("title:%s\n",title)
 				
 			case <-colonblink.C:
 				colon ^= 1

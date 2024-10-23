@@ -9,7 +9,13 @@ import (
 	"encoding/base64"
 	"strconv"
 	"regexp"
+	"strings"
 )
+
+type StationInfo struct {
+	Name string
+	Url string
+}
 
 const (
 	auth_key string = "bcd151073c03b352e1ef2fd66c32209da9ca0afa" // 現状は固有 key_lenght = 0
@@ -135,3 +141,14 @@ exit_this:
 	return chunkurl, err
 }
 
+func Radiko_setup(stlist []*StationInfo) {
+	for _, st := range stlist {
+		args := strings.Split(st.Url, "/")
+		if args[0] == "plugin:" {
+			if args[1] == "radiko.py" {
+				_, _ = Radiko_get_url(args[2])
+				break
+			}
+		}
+	}
+}
