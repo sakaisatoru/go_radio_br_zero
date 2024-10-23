@@ -84,7 +84,7 @@ func Close() {
 }
 
 func Send(s string) error {
-	fmt.Printf("s = %s\n",s)
+	//~ fmt.Printf("s = %s\n",s)
 	_, err := mpv.Write([]byte(s))
 	return err
 }

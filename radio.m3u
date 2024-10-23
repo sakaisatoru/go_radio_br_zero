@@ -3,15 +3,15 @@
 #EXTINF:-1,Saitama / ｽﾏｲﾙﾗｼﾞｵ
 mms://hdv.nkansai.tv/smile
 
-#EXTINF:-1,USA / AFN TOKY
+#EXTINF:-1,USA / AFN TOKYO
 plugin:/afn.py/AFNP_TKO
-#EXTINF:-1,USA / AFN Grav
+#EXTINF:-1,USA / AFN Gravity
 plugin:/afn.py/AFN_GRV
-#EXTINF:-1,USA / AFN Joe 
+#EXTINF:-1,USA / AFN Joe Radio
 plugin:/afn.py/AFN_JOEP
-#EXTINF:-1,USA / AFN Hot 
+#EXTINF:-1,USA / AFN Hot AC
 plugin:/afn.py/AFN_HOTP
-#EXTINF:-1,USA / AFN Lega
+#EXTINF:-1,USA / AFN Legacy
 plugin:/afn.py/AFN_LGYP
 
 #EXTINF:-1,radioparadise.com(main mix) / RP ﾒｲﾝ
@@ -20,29 +20,29 @@ http://stream.radioparadise.com/aac-320
 http://stream.radioparadise.com/mellow-320
 #EXTINF:-1,radioparadise.com(rock mix) / RP ﾛｯｸ
 http://stream.radioparadise.com/rock-320
-#EXTINF:-1,radioparadise.com(global mix) / RPｸﾞﾛｰﾊﾞ
+#EXTINF:-1,radioparadise.com(global mix) / RPｸﾞﾛｰﾊﾞﾙ
 http://stream.radioparadise.com/global-320
 
-#EXTINF:-1,klassikradio.de / Klassik
+#EXTINF:-1,klassikradio.de / Klassik Radio Live
 http://live.streams.klassikradio.de/klassikradio-deutschland/stream/mp3
-#EXTINF:-1,klassikradio.de / Gaming
+#EXTINF:-1,klassikradio.de / Gaming Musik
 http://stream.klassikradio.de/games/mp3-192/
-#EXTINF:-1,klassikradio.de / 60Bar L
+#EXTINF:-1,klassikradio.de / 60ies Bar Lounge
 http://stream.klassikradio.de/60iesbl/mp3-192/
-#EXTINF:-1,klassikradio.de / Dinner
+#EXTINF:-1,klassikradio.de / Dinner Jazz
 http://stream.klassikradio.de/dinnerjazz/mp3-192/
-#EXTINF:-1,klassikradio.de / Smooth
+#EXTINF:-1,klassikradio.de / Smooth Jazz
 http://stream.klassikradio.de/smooth/mp3-192/
 #EXTINF:-1,klassikradio.de / Lounge
 http://stream.klassikradio.de/lounge/mp3-192/
-#EXTINF:-1,klassikradio.de / L.Beat
+#EXTINF:-1,klassikradio.de / Lounge Beat
 https://stream.klassikradio.de/lounge-beat/mp3-192/
 
 #EXTINF:-1,Tokyo / TBSﾗｼﾞｵ
 plugin:/radiko.py/TBS
 #EXTINF:-1,Tokyo / ﾌﾞﾝｶﾎｳｿｳ
 plugin:/radiko.py/QRR
-#EXTINF:-1,Tokyo / ﾆｯﾎﾟﾝﾎｳｿ
+#EXTINF:-1,Tokyo / ﾆｯﾎﾟﾝﾎｳｿｳ
 plugin:/radiko.py/LFR
 #EXTINF:-1,Tokyo / interfm
 plugin:/radiko.py/INT

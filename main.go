@@ -100,6 +100,7 @@ var (
 	display_colon = []uint8{' ',':'}
 	display_sleep = []uint8{' ',' ','S'}
 	display_buff []byte
+	display_buff_pos int16 = 0
 	clock_mode uint8
 	alarm_time time.Time
 	tuneoff_time time.Time
@@ -157,17 +158,24 @@ func setup_station_list() int {
 	return len(stlist)
 }
 
-func infoupdate(line uint8, mes *string) {
+func infoupdate(line uint8, mes *string, scroll bool) {
 	mu.Lock()
 	defer mu.Unlock()
 	
 	t := []byte(*mes)
 	l := lcd.UTF8toOLED(&t)
-	if l < 8 {
+	display_buff_pos = 0
+	if l > 8 {
+		t = append(t[:l], append([]byte("  "), t[:8]...)...)
+	} else {
 		t = append(t[:l], []byte("        ")...)[:8]
 	}
 	if line == 0 {
-		display_buff = t
+		if l > 8 && scroll == false {
+			display_buff = t[:8]
+		} else {
+			display_buff = t
+		}
 	}
 	lcd.PrintWithPos(0, line, t[:8])
 }
@@ -304,7 +312,7 @@ func tune() {
 		station_url string
 		err error = nil
 	)
-	infoupdate(0, &stlist[pos].Name)
+	infoupdate(0, &stlist[pos].Name, false)
 	if radio_enable && lastpos == pos {
 		return
 	}
@@ -334,7 +342,7 @@ func tune() {
 
 func radio_stop() {
 	mpvctl.Stop()
-	infoupdate(0, &errmessage[SPACE16])
+	infoupdate(0, &errmessage[SPACE16], false)
 	afamp_disable()		// AF amp disable
 	radio_enable = false
 }
@@ -395,13 +403,21 @@ func showclock() {
 				nowlocal.Minute())
 	}
 	bf = append(bf, tm...)
-	
-	// aqm0802a
-	//~ s := fmt.Sprintf("%c%c %s", al, sl, tm)
-	//~ lcd.PrintWithPos(0, 1, []byte(s))
 	lcd.PrintWithPos(0, 1, bf)
 
-	lcd.PrintWithPos(0, 0, display_buff)
+	// aqm0802a
+	display_buff_len := len(display_buff)
+	if display_buff_len <= 8 {
+		lcd.PrintWithPos(0, 0, display_buff)
+	} else {
+		//~ fmt.Printf("%s\n",string(display_buff[display_buff_pos:display_buff_pos+8]))
+		lcd.PrintWithPos(0, 0, display_buff[display_buff_pos:display_buff_pos+8])
+		display_buff_pos++
+		//~ if display_buff_pos >= int16((display_buff_len/2)+1) {
+		if display_buff_pos >= int16(display_buff_len-8) {
+			display_buff_pos = 0
+		}
+	}
 }
 
 func main() {
@@ -451,8 +467,8 @@ func main() {
 
 	err = mpvctl.Init(MPV_SOCKET_PATH)
 	if err != nil {
-		infoupdate(0, &errmessage[ERROR_MPV_FAULT])
-		infoupdate(1, &errmessage[ERROR_HUP])
+		infoupdate(0, &errmessage[ERROR_MPV_FAULT], false)
+		infoupdate(1, &errmessage[ERROR_HUP], false)
 		log.Fatal(err)
 	}
 	
@@ -488,8 +504,8 @@ func main() {
 	go netradio.Radiko_setup(stlist)
 	
 	if mpvctl.Open(MPV_SOCKET_PATH) != nil {
-		infoupdate(0, &errmessage[ERROR_MPV_CONN])
-		infoupdate(1, &errmessage[ERROR_HUP])
+		infoupdate(0, &errmessage[ERROR_MPV_CONN], false)
+		infoupdate(1, &errmessage[ERROR_HUP], false)
 		log.Fatal(err)	// time out
 	}
 
@@ -542,7 +558,7 @@ func main() {
 	}
 	statefunc[state_radio_off].cb_press = func() {
 			stmp := "shutdown"
-			infoupdate(0, &stmp)
+			infoupdate(0, &stmp, false)
 			afamp_disable()
 			time.Sleep(700*time.Millisecond)
 			cmd := exec.Command("/sbin/poweroff", "")
@@ -606,7 +622,7 @@ func main() {
 				if pos > stlen -1 {
 					pos = 0
 				}
-				infoupdate(0, &stlist[pos].Name)
+				infoupdate(0, &stlist[pos].Name, false)
 				finetune = 3	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
@@ -618,7 +634,7 @@ func main() {
 				if pos < 0 {
 					pos = stlen - 1
 				}
-				infoupdate(0, &stlist[pos].Name)
+				infoupdate(0, &stlist[pos].Name, false)
 				finetune = 3	// 一度選局したらその後の入力をしばらく無視する
 			} else {
 				finetune--
@@ -736,12 +752,11 @@ func main() {
 
 			case title := <-mpvret:
 				// mpv の応答でフィルタで処理された文字列をここで処理する
-				//~ stmp := stlist[pos].Name
-				//~ if title != "" {
-					//~ stmp = stmp + "  " + title
-				//~ }
-				//~ infoupdate(0, stmp)
-				fmt.Printf("title:%s\n",title)
+				stmp := stlist[pos].Name
+				if title != "" {
+					stmp = stmp + "  " + title
+				}
+				infoupdate(0, &stmp, true)
 				
 			case <-colonblink.C:
 				colon ^= 1
