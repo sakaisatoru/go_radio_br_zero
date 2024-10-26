@@ -277,19 +277,19 @@ func afamp_disable() {
 	rpio.Pin(pin_afamp).Low()
 }
 
-func lcdlight_on() {
-	rpio.Pin(pin_lcd_backlight).High()
-}
+//~ func lcdlight_on() {
+	//~ rpio.Pin(pin_lcd_backlight).High()
+//~ }
 
-func lcdlight_off() {
-	rpio.Pin(pin_lcd_backlight).Low()
-}
+//~ func lcdlight_off() {
+	//~ rpio.Pin(pin_lcd_backlight).Low()
+//~ }
 
-func lcdreset() {
-	rpio.Pin(pin_lcd_reset).Low()
-	time.Sleep(100*time.Microsecond)
-	rpio.Pin(pin_lcd_reset).High()
-}
+//~ func lcdreset() {
+	//~ rpio.Pin(pin_lcd_reset).Low()
+	//~ time.Sleep(100*time.Microsecond)
+	//~ rpio.Pin(pin_lcd_reset).High()
+//~ }
 
 func btn_led1_on() {
 	rpio.Pin(pin_re_led1).Low()
@@ -456,11 +456,8 @@ func main() {
 	defer i2c.Close()
 
 	// OLED or LCD
-	lcdreset()
-
-	//~ lcd = aqm1602y.New(i2c)	// aqm1602y
-	lcd = aqm0802a.New(i2c)
-	lcd.Configure()
+	lcd = aqm0802a.New(i2c, pin_lcd_reset, pin_lcd_backlight)
+	lcd.Init()
 	//~ lcd.PrintWithPos(0, 0, []byte(VERSION))
 
 	jst = time.FixedZone("JST", 9*60*60)
@@ -493,7 +490,7 @@ func main() {
 					btn_led2_off()
 					lcd.DisplayOff()
 					i2c.Close()
-					lcdlight_off()
+					lcd.LightOff()
 					close(signals)
 					os.Exit(0)
 			}
@@ -551,10 +548,10 @@ func main() {
 			statefunc[state_volume_controle].startup()
 	}
 	statefunc[state_radio_off].cb_re_cw = func() {
-			lcdlight_on() 
+			lcd.LightOn() 
 	}
 	statefunc[state_radio_off].cb_re_ccw = func() {
-			lcdlight_off() 
+			lcd.LightOff() 
 	}
 	statefunc[state_radio_off].cb_press = func() {
 			stmp := "shutdown"
@@ -566,13 +563,13 @@ func main() {
 			afamp_disable()		// AF amp disable
 			lcd.DisplayOff()
 			i2c.Close()
-			lcdlight_off()
+			lcd.LightOff()
 			os.Exit(0)
 	}
 	statefunc[state_radio_off].startup = func() {
 			btn_led1_off()
 			btn_led2_off()
-			lcdlight_off()
+			lcd.LightOff()
 			radio_stop()
 	}
 	statefunc[state_radio_off].beforetransition = func() {}

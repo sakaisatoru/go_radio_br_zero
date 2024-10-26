@@ -1,2 +1,4 @@
 github.com/davecheney/i2c v0.0.0-20140823063045-caf08501bef2 h1:dJlrNN+WwRQae3jpM5U4K/YEug8H70UJ81qFTIW8OWw=
 github.com/davecheney/i2c v0.0.0-20140823063045-caf08501bef2/go.mod h1:dLsKZHRI/M1y9t45kzobSt8ozHf+wsCe+ahxsg51Vy0=
+github.com/stianeikeland/go-rpio/v4 v4.6.0 h1:eAJgtw3jTtvn/CqwbC82ntcS+dtzUTgo5qlZKe677EY=
+github.com/stianeikeland/go-rpio/v4 v4.6.0/go.mod h1:A3GvHxC1Om5zaId+HqB3HKqx4K/AqeckxB7qRjxMK7o=

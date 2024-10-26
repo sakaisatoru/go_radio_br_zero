@@ -2,6 +2,7 @@ package aqm0802a
 
 import (
 	"github.com/davecheney/i2c"
+	"github.com/stianeikeland/go-rpio/v4"
 	"time"
 	"fmt"
 )
@@ -14,7 +15,10 @@ type Config struct {
 }
 
 type AQM0802A struct {
-	bus		i2c.I2C
+	bus				i2c.I2C
+	pin_reset		int
+	pin_backlight	int
+
 	Config	Config
 }
 
@@ -145,14 +149,16 @@ func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
 	return pos
 }
 
-func New(bus *i2c.I2C) AQM0802A {
+func New(bus *i2c.I2C, reset_pin int, backlight_pin int) AQM0802A {
 	return AQM0802A {
-		bus:		*bus,
+		bus:			*bus,
+		pin_reset:		reset_pin,
+		pin_backlight:	backlight_pin,
 	}
 }
 
-func (d *AQM0802A) Configure() {
-	// LCD
+func (d *AQM0802A) Init() {
+	d.Reset()
 	time.Sleep(40 * time.Millisecond)                 // power on 後の推奨待ち時間
 
 	init := []byte{0x38, 0x39, 0x14, 0x70, 0x56, 0x6c, 0x38, 0x01, 0x0c}
@@ -176,7 +182,21 @@ func (d *AQM0802A) Configure() {
 func (d *AQM0802A) ConfigureWithSettings(config Config) {
 }
 
-func (d *AQM0802A) Init() {
+func (d *AQM0802A) LightOn() {
+	rpio.Pin(d.pin_backlight).High()
+}
+
+func (d *AQM0802A) LightOff() {
+	rpio.Pin(d.pin_backlight).Low()
+}
+
+func (d *AQM0802A) Reset() {
+	rpio.Pin(d.pin_reset).Low()
+	time.Sleep(100*time.Microsecond)
+	rpio.Pin(d.pin_reset).High()
+}
+
+func (d *AQM0802A) Configure() {
 }
 
 func (d *AQM0802A) Clear() {
