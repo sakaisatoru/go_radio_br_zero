@@ -5,6 +5,7 @@ import (
 	"github.com/stianeikeland/go-rpio/v4"
 	"time"
 	"fmt"
+	"sync"
 )
 
 const (
@@ -18,7 +19,7 @@ type AQM0802A struct {
 	bus				i2c.I2C
 	pin_reset		int
 	pin_backlight	int
-
+	light			bool
 	Config	Config
 }
 
@@ -59,6 +60,8 @@ var (
 						 0xC8, 0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCE, 0xCF,
 						 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7,
 						 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF}
+
+	mu sync.Mutex
 )
 
 func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
@@ -154,6 +157,7 @@ func New(bus *i2c.I2C, reset_pin int, backlight_pin int) AQM0802A {
 		bus:			*bus,
 		pin_reset:		reset_pin,
 		pin_backlight:	backlight_pin,
+		light:			false,
 	}
 }
 
@@ -170,9 +174,8 @@ func (d *AQM0802A) Init() {
 		} else {
 			time.Sleep(27*time.Microsecond)
 		}
-		//~ fmt.Printf("%02X ",r)
 		if err != nil {
-			fmt.Printf("%02X ",r);
+			fmt.Printf("%02X ",r)
 			fmt.Println(err)
 		}
 	}
@@ -183,11 +186,21 @@ func (d *AQM0802A) ConfigureWithSettings(config Config) {
 }
 
 func (d *AQM0802A) LightOn() {
+	mu.Lock()
+	defer mu.Unlock()
 	rpio.Pin(d.pin_backlight).High()
+	d.light = true
 }
 
 func (d *AQM0802A) LightOff() {
+	mu.Lock()
+	defer mu.Unlock()
 	rpio.Pin(d.pin_backlight).Low()
+	d.light = false
+}
+
+func (d *AQM0802A) IsLightOn() bool {
+	return d.light
 }
 
 func (d *AQM0802A) Reset() {
