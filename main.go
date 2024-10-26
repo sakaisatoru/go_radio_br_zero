@@ -361,10 +361,11 @@ func tune() {
 		station_url string
 		err error = nil
 	)
-	infoupdate(0, &stlist[pos].Name, false)
+
 	if radio_enable && lastpos == pos {
 		return
 	}
+	infoupdate(0, &stlist[pos].Name, false)
 	
 	args := strings.Split(stlist[pos].Url, "/")
 	if args[0] == "plugin:" {
