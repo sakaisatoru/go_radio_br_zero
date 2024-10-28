@@ -20,6 +20,7 @@ type AQM0802A struct {
 	pin_reset		int
 	pin_backlight	int
 	light			bool
+	mu 				sync.Mutex
 	Config	Config
 }
 
@@ -61,7 +62,6 @@ var (
 						 0xD0, 0xD1, 0xD2, 0xD3, 0xD4, 0xD5, 0xD6, 0xD7,
 						 0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF}
 
-	mu sync.Mutex
 )
 
 func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
@@ -186,15 +186,15 @@ func (d *AQM0802A) ConfigureWithSettings(config Config) {
 }
 
 func (d *AQM0802A) LightOn() {
-	mu.Lock()
-	defer mu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	rpio.Pin(d.pin_backlight).High()
 	d.light = true
 }
 
 func (d *AQM0802A) LightOff() {
-	mu.Lock()
-	defer mu.Unlock()
+	d.mu.Lock()
+	defer d.mu.Unlock()
 	rpio.Pin(d.pin_backlight).Low()
 	d.light = false
 }
