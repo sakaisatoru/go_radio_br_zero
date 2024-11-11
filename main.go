@@ -23,7 +23,7 @@ import (
 const (
 	stationlist string = "/home/sakai/program/radio.m3u"
 	MPV_SOCKET_PATH string = "/run/mpvsocket"
-	VERSION			string = "radio v2.4"
+	VERSION			string = "ﾗｼﾞｵv2.5"
 )
 
 type ButtonCode int
@@ -435,33 +435,9 @@ func main() {
 	}
 	
 	// シグナルハンドラ
-	go func() {
-		signals := make(chan os.Signal, 1)
-		signal.Notify(signals, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGINT) // syscall.SIGUSR1
-		
-		for {
-			switch <-signals {
-				case syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGINT:
-					// shutdown this program
-					mpvctl.Close()
-					if err = mpvctl.Mpvkill();err != nil {
-						log.Println(err)
-					}
-					if err = os.Remove(MPV_SOCKET_PATH);err != nil {
-						log.Println(err)
-					}
-					afamp_disable()		// AF amp disable
-					led_green_off()
-					led_red_off()
-					lcd.DisplayOff()
-					i2c.Close()
-					lcd.LightOff()
-					close(signals)
-					os.Exit(0)
-			}
-		}
-	}()
-	
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGINT) // syscall.SIGUSR1
+
 	stlen := setup_station_list()
 	go netradio.Radiko_setup(stlist)
 	
@@ -715,6 +691,22 @@ func main() {
 					case btn_station_repeat_end:	// 長押し後ボタンを離した時の処理
 						statefunc[statepos].cb_press()
 				}
+			
+			case <-signals:
+				mpvctl.Close()
+				if err = mpvctl.Mpvkill();err != nil {
+					log.Println(err)
+				}
+				if err = os.Remove(MPV_SOCKET_PATH);err != nil {
+					log.Println(err)
+				}
+				afamp_disable()		// AF amp disable
+				led_yellow_off()
+				lcd.DisplayOff()
+				i2c.Close()
+				lcd.LightOff()
+				close(signals)
+				os.Exit(0)
 		}
 	}
 }
