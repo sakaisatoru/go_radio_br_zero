@@ -120,7 +120,7 @@ var (
 	}
 
 	jst *time.Location
-
+	weekday	= []string{"Su","Mo","Tu","We","Th","Fr","Sa"}
 	statefunc [statelength]stateEventhandlers
 	statepos  int
 )
@@ -317,6 +317,7 @@ func showclock() {
 	defer mu.Unlock()
 	var (
 		tm string                       // 時刻
+		dt string						// 日付
 		al string = " "                 // アラームオン
 		sl string = " "                 // スリープオン
 		bf        = make([]byte, 0, 17) // LCD転送用
@@ -348,22 +349,26 @@ func showclock() {
 	} else {
 		nowlocal := time.Now().In(jst) //Local()
 		tm = fmt.Sprintf(" %02d%c%02d",
-			nowlocal.Hour(), display_colon[colon],
-			nowlocal.Minute())
+			nowlocal.Hour(), display_colon[colon], nowlocal.Minute())
+		dt = fmt.Sprintf("%02d-%02d %s",
+			nowlocal.Month(), nowlocal.Day(), weekday[nowlocal.Weekday()])
 	}
 	bf = append(bf, tm...)
 	lcd.PrintWithPos(0, 1, bf)
 
-	// aqm0802a
-	display_buff_len := len(display_buff)
-	if display_buff_len <= 8 {
-		lcd.PrintWithPos(0, 0, display_buff)
-	} else {
-		lcd.PrintWithPos(0, 0, display_buff[display_buff_pos:display_buff_pos+8])
-		display_buff_pos++
-		if display_buff_pos >= int16(display_buff_len-8) {
-			display_buff_pos = 0
+	if radio_enable {
+		display_buff_len := len(display_buff)
+		if display_buff_len <= 8 {
+			lcd.PrintWithPos(0, 0, display_buff)
+		} else {
+			lcd.PrintWithPos(0, 0, display_buff[display_buff_pos:display_buff_pos+8])
+			display_buff_pos++
+			if display_buff_pos >= int16(display_buff_len-8) {
+				display_buff_pos = 0
+			}
 		}
+	} else {
+		lcd.PrintWithPos(0, 0, []byte(dt))
 	}
 }
 
