@@ -475,7 +475,8 @@ func main() {
 	colon = 0
 	clock_mode = clock_mode_normal
 
-	alarm_time = time.Unix(0, 0).UTC()
+	//~ alarm_time = time.Unix(0, 0).UTC()
+	alarm_time = time.Date(2024, time.July, 4, 4, 50, 0, 0, time.UTC)
 	tuneoff_time = time.Unix(0, 0).UTC()
 	btncode := make(chan ButtonCode)
 	btnREcode := make(chan rotaryencoder.REvector)
