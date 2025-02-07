@@ -162,20 +162,22 @@ func New(bus *i2c.I2C, reset_pin int, backlight_pin int) AQM0802A {
 }
 
 func (d *AQM0802A) Init() {
+	// st7032.pdf p33
 	d.Reset()
-	time.Sleep(40 * time.Millisecond)                 // power on 後の推奨待ち時間
+	time.Sleep(50 * time.Millisecond) // power on 後の推奨待ち時間 40mS以上
 
-	init := []byte{0x38, 0x39, 0x14, 0x70, 0x56, 0x6c, 0x38, 0x01, 0x0c}
-	for _, r := range init {
-		_, err := d.bus.Write([]byte{0x00, r})
-		if r == 0x6c {
+	//~ init := []byte{0x38, 0x39, 0x14, 0x70, 0x56, 0x6c, 0x38, 0x01, 0x0c}
+	init := []byte{0x38, 0x39, 0x14, 0x70, 0x56, 0x6c, 0x0c, 0x01}
+	for i := range init {
+		_, err := d.bus.Write([]byte{0x00, init[i]})
+		if init[i] == 0x6c {
 			// Fllower control 後の処理
-			time.Sleep(300*time.Millisecond)
+			time.Sleep(300*time.Millisecond) // > 200mS
 		} else {
-			time.Sleep(27*time.Microsecond)
+			time.Sleep(28*time.Microsecond) // > 26.3uS
 		}
 		if err != nil {
-			fmt.Printf("%02X ",r)
+			fmt.Printf("%02X ",init[i])
 			fmt.Println(err)
 		}
 	}
@@ -204,8 +206,9 @@ func (d *AQM0802A) IsLightOn() bool {
 }
 
 func (d *AQM0802A) Reset() {
+	// st7032.pdf p47
 	rpio.Pin(d.pin_reset).Low()
-	time.Sleep(100*time.Microsecond)
+	time.Sleep(150*time.Microsecond) // tl > 100uS
 	rpio.Pin(d.pin_reset).High()
 }
 
