@@ -119,10 +119,12 @@ var (
 		"ｿｹｯﾄｴﾗｰ",  //
 	}
 
-	jst *time.Location
-	weekday	= []string{"Su","Mo","Tu","We","Th","Fr","Sa"}
+	jst       *time.Location
+	weekday   = []string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"}
 	statefunc [statelength]stateEventhandlers
 	statepos  int
+
+	voltable = []int8{0, 15, 20, 25, 31, 37, 43, 49, 57, 63, 68}
 )
 
 func setup_station_list() int {
@@ -317,7 +319,7 @@ func showclock() {
 	defer mu.Unlock()
 	var (
 		tm string                       // 時刻
-		dt string						// 日付
+		dt string                       // 日付
 		al string = " "                 // アラームオン
 		sl string = " "                 // スリープオン
 		bf        = make([]byte, 0, 17) // LCD転送用
@@ -436,6 +438,7 @@ func main() {
 		infoupdate(1, &errmessage[ERROR_HUP], false)
 		log.Fatal(err)
 	}
+	mpvctl.SetVoltable(&voltable)
 
 	// シグナルハンドラ
 	signals := make(chan os.Signal, 1)
@@ -444,7 +447,7 @@ func main() {
 	stlen := setup_station_list()
 	go netradio.Radiko_setup(stlist)
 
-	if mpvctl.Open(MPV_SOCKET_PATH) != nil {
+	if mpvctl.Open() != nil {
 		infoupdate(0, &errmessage[ERROR_MPV_CONN], false)
 		infoupdate(1, &errmessage[ERROR_HUP], false)
 		log.Fatal(err) // time out
@@ -468,7 +471,7 @@ func main() {
 	radio_enable = false
 	pos = 0
 	lastpos = pos
-	volume = mpvctl.Volume_max/2
+	volume = mpvctl.Volume_max / 2
 	mpvctl.Setvol(volume)
 	s := "{ \"command\": [\"observe_property_string\", 1, \"metadata/by-key/icy-title\"] }"
 	mpvctl.Send(s)
@@ -486,13 +489,15 @@ func main() {
 
 	// 各ステートにおけるコールバック
 
-	// ラジオオフ（初期状態）
+	// ラジオオフ（および初期状態時の動作）
 	statefunc[state_radio_off].cb_click = func() {
+		// ラジオオンへ
 		statefunc[state_radio_off].beforetransition()
 		statepos = state_volume_controle
 		statefunc[state_volume_controle].startup()
 	}
 	statefunc[state_radio_off].cb_re_cw = func() {
+		statefunc[state_radio_off].cb_click()
 	}
 	statefunc[state_radio_off].cb_re_ccw = func() {
 	}
@@ -515,8 +520,9 @@ func main() {
 	}
 	statefunc[state_radio_off].beforetransition = func() {}
 
-	// 音量調整（ラジオオン）
+	// 音量調整（ラジオオン時の動作）
 	statefunc[state_volume_controle].cb_click = func() {
+		// 選局へ
 		statefunc[state_volume_controle].beforetransition()
 		statepos = state_station_tuning
 		statefunc[state_station_tuning].startup()
@@ -532,10 +538,14 @@ func main() {
 		volume--
 		if volume < mpvctl.Volume_min {
 			volume = mpvctl.Volume_min
+			if radio_enable {
+				statefunc[state_volume_controle].cb_press()
+			}
 		}
 		mpvctl.Setvol(volume)
 	}
 	statefunc[state_volume_controle].cb_press = func() {
+		// ラジオオフへ
 		statefunc[state_volume_controle].beforetransition()
 		statepos = state_radio_off
 		statefunc[state_radio_off].startup()
