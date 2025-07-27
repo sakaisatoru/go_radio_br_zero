@@ -78,7 +78,7 @@ const (
 )
 
 const (
-	pin_re_button = 13
+	pin_re_button = 3
 	pin_re_a      = 19
 	pin_re_b      = 26
 
@@ -410,7 +410,8 @@ func main() {
 	}
 
 	//~ i2c, err := i2c.New(0x3c, 1)	// aqm1602y (OLED)
-	i2c, err := i2c.New(0x3e, 1) // aqm0802a
+	//~ i2c, err := i2c.New(0x3e, 1) // aqm0802a
+	i2c, err := i2c.New(0x3e, 0) // aqm0802a
 	if err != nil {
 		log.Fatal(err)
 	}
