@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/davecheney/i2c"
 	"github.com/sakaisatoru/go_radio_raspi/mpvctl"
-	"github.com/sakaisatoru/go_radio_raspi/netradio"
+	"github.com/sakaisatoru/go_mpvradio/netradio"
 	"github.com/sakaisatoru/go_radio_raspi/rotaryencoder"
 	"github.com/stianeikeland/go-rpio/v4"
 	"local.packages/aqm0802a"
@@ -125,6 +125,8 @@ var (
 	statepos  int
 
 	voltable = []int8{0, 15, 20, 25, 31, 37, 43, 49, 57, 63, 68}
+
+	radikoproxy *netradio.RadikoProxy
 )
 
 func setup_station_list() int {
@@ -272,9 +274,19 @@ func tune() {
 	if args[0] == "plugin:" {
 		switch args[1] {
 		case "afn.py":
-			station_url, err = netradio.AFN_get_url_with_api(args[2])
+			station_url, err = netradio.AFNGetUrlWithApi(args[2])
 		case "radiko.py":
-			station_url, err = netradio.Radiko_get_url(args[2])
+			radiko, e := netradio.RadikoGetUrl(args[2])
+			if e != nil {
+				err = e
+				break
+			}
+			radikoproxy.SetStationInfo(radiko)
+			if radikoproxy.IsStop() {
+				radikoproxy.Start()
+			}
+			station_url = radikoproxy.GetProxyAddress()
+
 		default:
 			break
 		}
@@ -446,7 +458,9 @@ func main() {
 	signal.Notify(signals, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGINT)
 
 	stlen := setup_station_list()
-	go netradio.Radiko_setup(stlist)
+	// radiko用代理サーバー
+	radikoproxy = netradio.RadikoProxyNew()
+	//~ go netradio.Radiko_setup(stlist)
 
 	if mpvctl.Open() != nil {
 		infoupdate(0, &errmessage[ERROR_MPV_CONN], false)
@@ -485,6 +499,7 @@ func main() {
 	btncode := make(chan ButtonCode)
 	btnREcode := make(chan rotaryencoder.REvector)
 
+	// 入力受付起動
 	go btninput(btncode)
 	go rencoder.DetectLoop(btnREcode)
 

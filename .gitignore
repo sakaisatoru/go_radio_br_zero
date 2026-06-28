@@ -2,3 +2,5 @@
 /buildroot/sdcard.img
 /go.sum
 
+./go_radio_br_zero/go_radio_br_zero.geany
+/go_radio_br_zero.geany
