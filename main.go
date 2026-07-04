@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"github.com/davecheney/i2c"
 	"github.com/sakaisatoru/go_radio_raspi/mpvctl"
-	//~ "github.com/sakaisatoru/go_mpvradio/netradio"
-	"local.packages/netradio"
+	"github.com/sakaisatoru/go_mpvradio/netradio"
 	"github.com/sakaisatoru/go_radio_raspi/rotaryencoder"
 	"github.com/stianeikeland/go-rpio/v4"
 	"local.packages/aqm0802a"
@@ -24,7 +23,7 @@ import (
 const (
 	stationlist     string = "/home/sakai/program/radio.m3u"
 	MPV_SOCKET_PATH string = "/run/mpvsocket"
-	VERSION         string = "ﾗｼﾞｵv2.6"
+	VERSION         string = "ﾗｼﾞｵv2.7"
 )
 
 type ButtonCode int
