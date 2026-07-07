@@ -19,7 +19,8 @@ type AQM0802A struct {
 	bus				i2c.I2C
 	pin_reset		int
 	pin_backlight	int
-	light			bool
+	isLightOn		bool
+	lightTimer		*time.Timer
 	mu 				sync.Mutex
 	Config	Config
 }
@@ -152,13 +153,15 @@ func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
 	return pos
 }
 
-func New(bus *i2c.I2C, reset_pin int, backlight_pin int) AQM0802A {
-	return AQM0802A {
+func New(bus *i2c.I2C, reset_pin int, backlight_pin int) *AQM0802A {
+	d := AQM0802A {
 		bus:			*bus,
 		pin_reset:		reset_pin,
 		pin_backlight:	backlight_pin,
-		light:			false,
+		isLightOn:		false,
 	}
+	d.lightTimer = time.AfterFunc(10*time.Second, d.LightOff)
+	return &d
 }
 
 func (d *AQM0802A) Init() {
@@ -191,18 +194,31 @@ func (d *AQM0802A) LightOn() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	rpio.Pin(d.pin_backlight).High()
-	d.light = true
+	d.isLightOn = true
 }
 
 func (d *AQM0802A) LightOff() {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	rpio.Pin(d.pin_backlight).Low()
-	d.light = false
+	d.isLightOn = false
 }
 
 func (d *AQM0802A) IsLightOn() bool {
-	return d.light
+	return d.isLightOn
+}
+
+func (d *AQM0802A) OneShotLight() {
+	if d.isLightOn {
+		d.lightTimer.Stop()
+	} else {
+		d.LightOn()
+	}
+	// ここに至るまでにタイマーが発動して消灯している可能性があるので
+	// 再度フラグを調べる
+	if d.isLightOn {
+		d.lightTimer.Reset(10 * time.Second)
+	}
 }
 
 func (d *AQM0802A) Reset() {

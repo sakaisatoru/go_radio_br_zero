@@ -21,25 +21,25 @@ import (
 )
 
 const (
-	stationlist     string = "/home/sakai/program/radio.m3u"
-	MPV_SOCKET_PATH string = "/run/mpvsocket"
-	VERSION         string = "ﾗｼﾞｵv2.7"
+	stationListFile     string = "/home/sakai/program/radio.m3u"
+	MpvSocketPath string = "/run/mpvsocket"
+	Version         string = "ﾗｼﾞｵv2.x"
 )
 
 type ButtonCode int
 
 const (
-	btn_station_none ButtonCode = iota
-	btn_station_re_button
-	btn_station_re_forward
-	btn_station_re_backward
-	btn_station_repeat_end
-	btn_system_shutdown
+	btnStationNone ButtonCode = iota
+	btnStationReButton
+	btnStationreForward
+	btnStationreBackward
+	btnStationRepeatEnd
+	btnSystemShutdown
 
-	btn_station_repeat = 0x80
+	btnStationRepeat = 0x80
 
-	btn_press_width      int = 5
-	btn_press_long_width int = 25
+	btnPressWidth      int = 5
+	btnPressLongWidth int = 25
 )
 
 const (
@@ -78,20 +78,20 @@ const (
 )
 
 const (
-	pin_re_button = 3
-	pin_re_a      = 19
-	pin_re_b      = 26
+	pinReButton = 3
+	pinReA      = 19
+	pinReB      = 26
 
-	pin_afamp         = 12
-	pin_lcd_reset     = 17
-	pin_lcd_backlight = 4
-	pin_re_led1       = 5
-	pin_re_led2       = 6
+	pinAfAmp         = 12
+	pinLcdReset     = 17
+	pinLcdBacklight = 4
+	pinReLed1       = 5
+	pinReLed2       = 6
 )
 
 var (
 	mpv              net.Conn
-	lcd              aqm0802a.AQM0802A
+	lcd              *aqm0802a.AQM0802A
 	mu               sync.Mutex
 	stlist           []*netradio.StationInfo
 	colon            uint8
@@ -107,7 +107,7 @@ var (
 	alarm_time       time.Time
 	tuneoff_time     time.Time
 	alarm_set_pos    int
-	light_timer      *time.Timer
+	//~ lightTimer      *time.Timer
 
 	errmessage = []string{
 		"HUP",      // HUP
@@ -130,7 +130,7 @@ var (
 )
 
 func setup_station_list() int {
-	file, err := os.Open(stationlist)
+	file, err := os.Open(stationListFile)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -189,33 +189,33 @@ func infoupdate(line uint8, mes *string, scroll bool) {
 
 func btninput(code chan<- ButtonCode) {
 	hold := 0
-	btn_h := btn_station_none
+	btn_h := btnStationNone
 
 	for {
 		time.Sleep(10 * time.Millisecond)
 
 		if btn_h == 0 {
-			if rpio.Pin(pin_re_button).Read() == rpio.Low {
+			if rpio.Pin(pinReButton).Read() == rpio.Low {
 				// 押されているボタンがあれば、そのコードを保存する
-				btn_h = btn_station_re_button
+				btn_h = btnStationReButton
 				hold = 0
 			}
 		} else {
 			// もし過去に押されていたら、現在それがどうなっているか調べる
-			if rpio.Pin(pin_re_button).Read() == rpio.Low {
+			if rpio.Pin(pinReButton).Read() == rpio.Low {
 				// 引き続き押されている
 				hold++
-				if hold > btn_press_long_width {
+				if hold > btnPressLongWidth {
 					hold--
 					//~ time.Sleep(100*time.Millisecond)// リピート幅調整用
-					oneshotlight()
-					code <- (btn_h | btn_station_repeat) // リピート入力
+					lcd.OneShotLight()
+					code <- (btn_h | btnStationRepeat) // リピート入力
 				}
 			} else {
-				if hold >= btn_press_long_width {
-					code <- btn_station_repeat_end // リピート入力の終わり(ボタン長押し)
-				} else if hold > btn_press_width {
-					oneshotlight()
+				if hold >= btnPressLongWidth {
+					code <- btnStationRepeatEnd // リピート入力の終わり(ボタン長押し)
+				} else if hold > btnPressWidth {
+					lcd.OneShotLight()
 					code <- btn_h // ワンショット入力
 				}
 				btn_h = 0
@@ -226,27 +226,27 @@ func btninput(code chan<- ButtonCode) {
 }
 
 func afamp_enable() {
-	rpio.Pin(pin_afamp).High()
+	rpio.Pin(pinAfAmp).High()
 }
 
 func afamp_disable() {
-	rpio.Pin(pin_afamp).Low()
+	rpio.Pin(pinAfAmp).Low()
 }
 
 func led_green_on() {
-	rpio.Pin(pin_re_led1).Low() // 緑
+	rpio.Pin(pinReLed1).Low() // 緑
 }
 
 func led_green_off() {
-	rpio.Pin(pin_re_led1).High()
+	rpio.Pin(pinReLed1).High()
 }
 
 func led_red_on() {
-	rpio.Pin(pin_re_led2).Low() // 赤
+	rpio.Pin(pinReLed2).Low() // 赤
 }
 
 func led_red_off() {
-	rpio.Pin(pin_re_led2).High()
+	rpio.Pin(pinReLed2).High()
 }
 
 func led_yellow_on() {
@@ -279,16 +279,6 @@ func tune() {
 				return
 			}
 		case "radiko.py":
-			//~ radiko, e := netradio.RadikoGetUrl(args[2])
-			//~ if e != nil {
-				//~ err = e
-				//~ break
-			//~ }
-			//~ radikoproxy.SetStationInfo(radiko)
-			//~ if radikoproxy.IsStop() {
-				//~ radikoproxy.Start()
-			//~ }
-			//~ station_url = radikoproxy.GetProxyAddress()
 			var err error
 			for i := 0; i < 3; i++ {
 				// エラーの際は認証トークンの期限切れを見越して２回再挑戦する
@@ -401,12 +391,12 @@ func showclock() {
 	}
 }
 
-func oneshotlight() {
-	if lcd.IsLightOn() == false {
-		lcd.LightOn()
-	}
-	light_timer.Reset(10 * time.Second)
-}
+//~ func oneshotlight() {
+	//~ if lcd.IsLightOn() == false {
+		//~ lcd.LightOn()
+	//~ }
+	//~ lightTimer.Reset(10 * time.Second)
+//~ }
 
 func main() {
 	// GPIO initialize
@@ -423,21 +413,19 @@ func main() {
 		}
 	}
 	defer rpio.Close()
-	for _, sn := range []rpio.Pin{pin_re_button,
-		pin_re_a, pin_re_b} {
+	for _, sn := range []rpio.Pin{pinReButton,
+		pinReA, pinReB} {
 		sn.Input()
 		sn.PullUp()
 	}
-	for _, sn := range []rpio.Pin{pin_afamp,
-		pin_lcd_reset, pin_lcd_backlight,
-		pin_re_led1, pin_re_led2} {
+	for _, sn := range []rpio.Pin{pinAfAmp,
+		pinLcdReset, pinLcdBacklight,
+		pinReLed1, pinReLed2} {
 		sn.Output()
 		sn.PullUp()
 		sn.Low()
 	}
 
-	//~ i2c, err := i2c.New(0x3c, 1)	// aqm1602y (OLED)
-	//~ i2c, err := i2c.New(0x3e, 1) // aqm0802a
 	i2c, err := i2c.New(0x3e, 0) // aqm0802a
 	if err != nil {
 		log.Fatal(err)
@@ -445,22 +433,21 @@ func main() {
 	defer i2c.Close()
 
 	// OLED or LCD
-	lcd = aqm0802a.New(i2c, pin_lcd_reset, pin_lcd_backlight)
+	lcd = aqm0802a.New(i2c, pinLcdReset, pinLcdBacklight)
 	lcd.Init()
-	startmes := VERSION
+	startmes := Version
 	infoupdate(0, &startmes, false)
-	lcd.LightOn()
-	light_timer = time.AfterFunc(10*time.Second, lcd.LightOff)
+	lcd.OneShotLight()
+	//~ lightTimer = time.AfterFunc(10*time.Second, lcd.LightOff)
 
 	// rotaryencoder
-	rencoder := rotaryencoder.New(pin_re_b, pin_re_a,
-		oneshotlight,
-		oneshotlight)
+	rencoder := rotaryencoder.New(pinReB, pinReA,
+		lcd.OneShotLight, lcd.OneShotLight)
 	//~ rencoder.SetSamplingTime(4)
 
 	jst = time.FixedZone("JST", 9*60*60)
 
-	err = mpvctl.Init(MPV_SOCKET_PATH)
+	err = mpvctl.Init(MpvSocketPath)
 	if err != nil {
 		infoupdate(0, &errmessage[ERROR_MPV_FAULT], false)
 		infoupdate(1, &errmessage[ERROR_HUP], false)
@@ -728,12 +715,12 @@ func main() {
 
 		case r := <-btncode:
 			switch r {
-			case btn_station_re_button: // ロータリーエンコーダのボタン
+			case btnStationReButton: // ロータリーエンコーダのボタン
 				statefunc[statepos].cb_click()
 
-			//~ case (btn_station_re_button|btn_station_repeat):
+			//~ case (btnStationReButton|btnStationRepeat):
 
-			case btn_station_repeat_end: // 長押し後ボタンを離した時の処理
+			case btnStationRepeatEnd: // 長押し後ボタンを離した時の処理
 				statefunc[statepos].cb_press()
 			}
 
@@ -742,7 +729,7 @@ func main() {
 			if err = mpvctl.Mpvkill(); err != nil {
 				log.Println(err)
 			}
-			if err = os.Remove(MPV_SOCKET_PATH); err != nil {
+			if err = os.Remove(MpvSocketPath); err != nil {
 				log.Println(err)
 			}
 			afamp_disable() // AF amp disable
