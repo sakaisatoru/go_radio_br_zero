@@ -400,17 +400,20 @@ func showclock() {
 
 func main() {
 	// GPIO initialize
-	for {
-		err := rpio.Open()
-		if err != nil {
-			if os.IsNotExist(err) {
-				time.Sleep(5000 * time.Millisecond)
-				log.Println(err)
-				continue
-			}
-		} else {
+	var firsterror error
+	for i := 0; i < 15; i++ {
+		firsterror = rpio.Open()
+		if firsterror == nil {
 			break
 		}
+		if os.IsNotExist(firsterror) {
+			log.Println(firsterror)
+			time.Sleep(2 * time.Second)
+		}
+	}
+	if firsterror != nil {
+		log.Println("exit program")
+		return
 	}
 	defer rpio.Close()
 	for _, sn := range []rpio.Pin{pinReButton,
