@@ -3,19 +3,25 @@
 #EXTINF:-1,Saitama / ｽﾏｲﾙﾗｼﾞｵ
 mms://hdv.nkansai.tv/smile
 
-#EXTINF:-1,USA / AFN Tokyo
+#EXTINF:-1,USA / AFN TOKYO
 plugin:/afn.py/AFNP_TKO
+#EXTINF:-1,USA / AFN Gravity
+plugin:/afn.py/AFN_GRV
+#EXTINF:-1,USA / AFN Joe Radio
+plugin:/afn.py/AFN_JOEP
+#EXTINF:-1,USA / AFN Hot AC
+plugin:/afn.py/AFN_HOTP
+#EXTINF:-1,USA / AFN Legacy
+plugin:/afn.py/AFN_LGYP
 
-#EXTINF:-1,1.FM / Top40
-https://strm112.1.fm/top40_mobile_mp3?aw_0_req.gdpr=true
-#EXTINF:-1,1.FM / Deephouse
-https://strm112.1.fm/deephouse_mobile_mp3?aw_0_req.gdpr=true
-#EXTINF:-1,1.FM / DeepTechno
-https://strm112.1.fm/deeptech_mobile_mp3?aw_0_req.gdpr=true
-#EXTINF:-1,1.FM / ChilloutLounge
-https://strm112.1.fm/chilloutlounge_mobile_mp3?aw_0_req.gdpr=true
-#EXTINF:-1,1.FM / AbsoluteTrance(Euro)
-https://strm112.1.fm/trance_mobile_mp3?aw_0_req.gdpr=true
+#EXTINF:-1,radioparadise.com(main mix) / RP ﾒｲﾝ
+http://stream.radioparadise.com/aac-320
+#EXTINF:-1,radioparadise.com(mellow mix) / RP ﾒﾛｳ
+http://stream.radioparadise.com/mellow-320
+#EXTINF:-1,radioparadise.com(rock mix) / RP ﾛｯｸ
+http://stream.radioparadise.com/rock-320
+#EXTINF:-1,radioparadise.com(global mix) / RPｸﾞﾛｰﾊﾞﾙ
+http://stream.radioparadise.com/global-320
 
 #EXTINF:-1,klassikradio.de / Klassik Radio Live
 http://live.streams.klassikradio.de/klassikradio-deutschland/stream/mp3
@@ -32,16 +38,7 @@ http://stream.klassikradio.de/lounge/mp3-192/
 #EXTINF:-1,klassikradio.de / Lounge Beat
 https://stream.klassikradio.de/lounge-beat/mp3-192/
 
-#EXTINF:-1,radioparadise.com(main mix) / RP(main mix)
-http://stream.radioparadise.com/aac-320
-#EXTINF:-1,radioparadise.com(mellow mix) / RP(mellow mix)
-http://stream.radioparadise.com/mellow-320
-#EXTINF:-1,radioparadise.com(rock mix) / RP(rock mix)
-http://stream.radioparadise.com/rock-320
-#EXTINF:-1,radioparadise.com(global mix) / RP(global mix)
-http://stream.radioparadise.com/global-320
-
-#EXTINF:-1,Tokyo / TBS
+#EXTINF:-1,Tokyo / TBSﾗｼﾞｵ
 plugin:/radiko.py/TBS
 #EXTINF:-1,Tokyo / ﾌﾞﾝｶﾎｳｿｳ
 plugin:/radiko.py/QRR
@@ -53,7 +50,7 @@ plugin:/radiko.py/INT
 plugin:/radiko.py/FMT
 #EXTINF:-1,Tokyo / J-WAVE
 plugin:/radiko.py/FMJ
-#EXTINF:-1,Tokyo / ﾗｼﾞｵﾆｯﾎﾟﾝ
+#EXTINF:-1,Tokyo / JORF
 plugin:/radiko.py/JORF
 #EXTINF:-1,Chiba / bayfm78
 plugin:/radiko.py/BAYFM78
@@ -63,19 +60,13 @@ plugin:/radiko.py/NACK5
 plugin:/radiko.py/YFM
 #EXTINF:-1,Ibaraki / LuckyFM
 plugin:/radiko.py/IBS
-#EXTINF:-1,Tokyo / NIKKEI 1
+#EXTINF:-1,Tokyo / ﾗｼﾞｵRN1
 plugin:/radiko.py/RN1
-#EXTINF:-1,Tokyo / NIKKEI 2
+#EXTINF:-1,Tokyo / ﾗｼﾞｵRN2
 plugin:/radiko.py/RN2
-#EXTINF:-1,Tokyo / NHK AM(Tokyo)
+#EXTINF:-1,Tokyo / NHK R1
 plugin:/radiko.py/JOAK
-#EXTINF:-1,Tokyo / NHK FM(Tokyo)
+#EXTINF:-1,Tokyo / NHK FM
 plugin:/radiko.py/JOAK-FM
-
-#EXTINF:-1,Vocaloid Radio / Vocaloid
-http://curiosity.shoutca.st:8019/stream
-#EXTINF:-1,Clover.fm / JPopsuki
-http://jpopsuki.fm:8000/stream
-#EXTINF:-1,LAN / LAN Streaming
-http://slitaz.local:8000
-
+#EXTINF:-1,Tokyo / NHK R2 
+https://radio-stream.nhk.jp/hls/live/2023501/nhkradiruakr2/master48k.m3u8
