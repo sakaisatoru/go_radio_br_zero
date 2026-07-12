@@ -1,19 +1,15 @@
 package volume
 
 import (
-	//~ "fmt"
 	"github.com/sakaisatoru/go_radio_raspi/mpvctl"
 	"time"
 )
 
 var (
-//~ type RadioVolume struct {
 	volume       int8 = 0
 	visible      bool = true
 	visibleSpan  time.Duration = 700 * time.Millisecond
-//~ }
 )
-
 
 func IsVisible() bool {
 	return visible
@@ -26,7 +22,6 @@ func Set(n int8) {
 func Get() int8 {
 	return volume
 }
-
 
 func Increment() {
 	volume++

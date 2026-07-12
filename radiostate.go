@@ -239,20 +239,24 @@ func (v *RadioState) TransitionState(s StateCode) {
 
 // handleNormalMode ホームポジション
 func (v *RadioState) handleNormalMode(btn ButtonCode) {
+	
 	switch btn {
 	case BtnStationReForward, BtnStationReButton:
 		tune()
 		v.TransitionState(stateVolumeSet)
 	case BtnStationReBackward:
 		// （空きファンクション）
-
+	case BtnStationReButtonLong:
+		// （空きファンクション）
 	case BtnStationReButtonRepeat:
-		shutdown()
+		// （空きファンクション）
 	}
+	
 }
 
 // handleAlarmHourSet アラームセット（時）
 func (v *RadioState) handleAlarmHourSet(btn ButtonCode) {
+	
 	switch btn {
 	case BtnStationReForward:
 		v.AlarmTimeInc()
@@ -265,10 +269,12 @@ func (v *RadioState) handleAlarmHourSet(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateNormalMode)
 	}
+	
 }
 
 // handleAlarmMinSet アラームセット（分）
 func (v *RadioState) handleAlarmMinSet(btn ButtonCode) {
+	
 	switch btn {
 	case BtnStationReForward:
 		v.AlarmTimeInc()
@@ -281,10 +287,12 @@ func (v *RadioState) handleAlarmMinSet(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateNormalMode)
 	}
+	
 }
 
 // handleSelectFunction アラームやスリープの設定
 func (v *RadioState) handleSelectFunction(btn ButtonCode) {
+	
 	switch btn {
 	case BtnStationReButton:
 		if v.tokeiState == 3 {
@@ -301,10 +309,12 @@ func (v *RadioState) handleSelectFunction(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateNormalMode)
 	}
+	
 }
 
 // handleTuneMode 選局
 func (v *RadioState) handleTuneMode(btn ButtonCode) {
+	
 	switch btn {
 	case BtnStationReForward:
 		radioState.NextTune()
@@ -318,10 +328,12 @@ func (v *RadioState) handleTuneMode(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateSelectFunction)
 	}
+	
 }
 
 // handleVolumeSet 音量調整
 func (v *RadioState) handleVolumeSet(btn ButtonCode) {
+	
 	switch btn {
 	case BtnStationReForward:
 		if !radioState.IsRadioEnable() {
@@ -344,19 +356,24 @@ func (v *RadioState) handleVolumeSet(btn ButtonCode) {
 		mpvctl.Stop()
 		v.TransitionState(stateNormalMode)
 	}
+	
 }
 
 // handleGlovalEvent モードに関係なく優先的に実行される可能性のある処理
 func (v *RadioState) handleGlovalEvent(btn ButtonCode) bool {
+	if v.currState == stateNormalMode && btn == BtnStationReButtonLong {
+		shutdown()
+		return true
+	}
 	return false
 }
 
 // Dispatch 処理の切り替えを行う
-func (v *RadioState) Dispatch(btn ButtonCode) {
-	//~ if v.handleGlovalEvent(btn) {
-	//~ // 優先処理が実行されていれば終わる
-	//~ return
-	//~ }
+func (v *RadioState) Dispatch(btn ButtonCode) bool {
+	if v.handleGlovalEvent(btn) {
+		// 優先処理が実行されていれば終わる
+		return true
+	}
 
 	switch v.currState {
 	case stateNormalMode:
@@ -372,4 +389,5 @@ func (v *RadioState) Dispatch(btn ButtonCode) {
 	case stateAlarmMinSet:
 		v.handleAlarmMinSet(btn)
 	}
+	return false
 }

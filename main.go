@@ -138,7 +138,6 @@ func shutdown() {
 	cmd.Start()
 	afampDisable() // AF amp disable
 	lcd.DisplayOff()
-	//~ i2c.Close()
 	lcd.LightOff()
 }
 
@@ -301,7 +300,10 @@ func main() {
 			radioState.Dispatch(ButtonCode(r))
 
 		case r := <-btncode:
-			radioState.Dispatch(r)
+			if radioState.Dispatch(r) {
+				// shutdown
+				return
+			}
 		}
 	}
 }
