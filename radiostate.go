@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/sakaisatoru/go_mpvradio/netradio"
 	"github.com/sakaisatoru/go_radio_raspi/mpvctl"
+		"local.packages/volume"
 	"time"
 )
 
@@ -33,7 +34,7 @@ type RadioState struct {
 	radioEnable    bool
 	pos            int
 	lastpos        int
-	stationList    []*netradio.StationInfo
+	stationList    []netradio.StationInfo
 	stationListLen int
 	tokeiState     TokeiState
 }
@@ -132,7 +133,7 @@ func (v *RadioState) TokeiCheck() {
 // ReadStationListInfo 放送局のリストを設定する
 func (v *RadioState) ReadStationListInfo(s string) error {
 	var err error
-	v.stationList, err = netradio.PrepareStationList(s)
+	v.stationList, err = netradio.PrepareStationList(s, 8)
 	if err != nil {
 		return err
 	}
@@ -175,7 +176,6 @@ func (v *RadioState) GetState() StateCode {
 	return v.currState
 }
 
-
 // AlarmTimeInc アラーム時刻を進める
 func (v *RadioState) AlarmTimeInc() {
 	if v.currState == stateAlarmHourSet {
@@ -215,10 +215,10 @@ func (v *RadioState) PriorTune() {
 // TransitionState 遷移時に一度だけ実行される動作
 func (v *RadioState) TransitionState(s StateCode) {
 	// 現在のモードの後始末
-	switch v.currState {
-	case stateTuneMode:
-		infomation.Scroll()
-	}
+	//~ switch v.currState {
+	//~ case stateTuneMode:
+		//~ infomation.Scroll()
+	//~ }
 
 	// 新しく遷移するモードの初期化処理
 	switch s {
@@ -228,9 +228,9 @@ func (v *RadioState) TransitionState(s StateCode) {
 			s = stateVolumeSet
 		}
 	case stateTuneMode:
-		infomation.Fix()
+		//~ infomation.Fix()
 	}
-	
+
 	v.currState = s
 	v.ChangeColor(s)
 }

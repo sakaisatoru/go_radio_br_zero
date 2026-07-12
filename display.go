@@ -5,10 +5,6 @@ import (
 	"time"
 )
 
-const (
-	displayColon string = " :"
-)
-
 var (
 	displayWeekday = [...]string{"Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"}
 )
@@ -34,7 +30,7 @@ func (v *InfomationDisplay) Update(line int, s string) {
 	defer mu.Unlock()
 
 	r, l := lcd.UTF8toOLED(s)
-	t := make([]byte, 0, l + 2 + 8)
+	t := make([]byte, 0, l+2+8)
 	t = append(t, r[:l]...)
 	if l > 8 {
 		t = append(t, "  "...)
@@ -94,7 +90,7 @@ func (v *InfomationDisplay) ShowClock(alarmflags string) {
 	if v.isScroll && v.buffLen > 8 {
 		lcd.PrintWithPos(0, 0, v.buff[v.buffPos:v.buffPos+8])
 		v.buffPos++
-		if v.buffPos >= v.buffLen - 8 {
+		if v.buffPos >= v.buffLen-8 {
 			v.buffPos = 0
 		}
 		return

@@ -7,6 +7,7 @@ import (
 	"github.com/sakaisatoru/go_radio_raspi/rotaryencoder"
 	"github.com/stianeikeland/go-rpio/v4"
 	"local.packages/aqm0802a"
+	"local.packages/volume"
 	"log"
 	"net"
 	"os"
@@ -68,10 +69,9 @@ var (
 	lcd         *aqm0802a.AQM0802A
 	radikoproxy *netradio.RadikoProxy
 	radioState  *RadioState
-	volume      *RadioVolume
-	infomation  *InfomationDisplay
-	colon       uint8
-	errmessage  = [...]string{
+	infomation *InfomationDisplay
+	colon      uint8
+	errmessage = [...]string{
 		"HUP     ",   // HUP
 		"mpv ｴﾗｰ  ",  //
 		"mpv ﾌｫﾙﾄ ",  //
@@ -194,8 +194,6 @@ func main() {
 
 	// 受信時の状態遷移管理
 	radioState = RadioStateNew()
-	// 音量調整
-	volume = RadioVolumeNew()
 
 	// mpv
 	err = mpvctl.Init(MpvSocketPath)
@@ -214,6 +212,7 @@ func main() {
 		return false
 	}
 
+	// 音量調整
 	volume.Set(mpvctl.VolumeMax / 3)
 
 	// シグナルハンドラ
