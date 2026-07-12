@@ -271,6 +271,7 @@ func main() {
 	btnREcode := make(chan rotaryencoder.REvector)
 	go rencoder.DetectLoop(btnREcode)
 
+	radioState.GreenOn()
 	for {
 		select {
 		case <-signals:
@@ -294,7 +295,7 @@ func main() {
 
 		case <-colonblink.C:
 			colon ^= 1
-			infomation.ShowClock(radioState.GetTokeiState())
+			infomation.ShowClock(radioState.GetStateString(colon))
 			radioState.TokeiCheck()
 
 		case r := <-btnREcode:

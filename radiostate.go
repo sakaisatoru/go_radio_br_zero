@@ -25,11 +25,8 @@ const (
 	tokeiSleepOn
 )
 
-const (
-	tokeiFlag string = " AS"
-)
-
 type RadioState struct {
+	Led
 	currState      StateCode
 	AlarmTime      time.Time
 	TurnOffTime    time.Time
@@ -39,7 +36,6 @@ type RadioState struct {
 	stationList    []*netradio.StationInfo
 	stationListLen int
 	tokeiState     TokeiState
-	led            *Led
 }
 
 func RadioStateNew() *RadioState {
@@ -51,7 +47,6 @@ func RadioStateNew() *RadioState {
 		pos:            0,
 		stationListLen: 0,
 		tokeiState:     tokeiNormal,
-		led:            LedNew(),
 	}
 }
 
@@ -81,26 +76,33 @@ func (v *RadioState) IsCannelChange() bool {
 	return (v.lastpos != v.pos)
 }
 
-// AlarmInfo アラーム設定時刻などの表示用文字列を返す
-func (v *RadioState) AlarmInfo(c uint8) string {
+// GetStateString 現在の状態を文字列で返す
+func (v *RadioState) GetStateString(c uint8) string {
 	var h, m, flags string
 
-	h = v.AlarmTime.Format("15") // hour
-	m = v.AlarmTime.Format("04") // minute
-
-	if c == 0 {
-		switch v.currState {
-		case stateAlarmHourSet:
-			// blink Hour
-			h = "  "
-		case stateAlarmMinSet:
-			// blink Min
-			m = "  "
-		}
-	}
 	flags = v.GetTokeiState()
+	switch v.currState {
+	case stateNormalMode, stateVolumeSet, stateTuneMode:
+		return flags
 
-	return flags + " " + h + ":" + m
+	case stateSelectFunction, stateAlarmHourSet, stateAlarmMinSet:
+		h = v.AlarmTime.Format("15") // hour
+		m = v.AlarmTime.Format("04") // minute
+
+		if c == 0 {
+			switch v.currState {
+			case stateAlarmHourSet:
+				// blink Hour
+				h = "  "
+			case stateAlarmMinSet:
+				// blink Min
+				m = "  "
+			}
+		}
+
+		return flags + " " + h + ":" + m
+	}
+	return ""
 }
 
 // TokeiCheck アラームおよびスリープ時刻をチェックしてそれぞれを起動する
@@ -173,11 +175,6 @@ func (v *RadioState) GetState() StateCode {
 	return v.currState
 }
 
-// SetState 現在の動作状態を設定する
-func (v *RadioState) TransitionState(s StateCode) {
-	v.currState = s
-	v.led.ChangeColor(s)
-}
 
 // AlarmTimeInc アラーム時刻を進める
 func (v *RadioState) AlarmTimeInc() {
@@ -197,22 +194,45 @@ func (v *RadioState) AlarmTimeDec() {
 	v.AlarmTime = v.AlarmTime.Add(23 * time.Hour)
 }
 
-func (v *RadioState) nextTune() {
+// nextTune 選局
+func (v *RadioState) NextTune() {
 	if v.radioEnable {
 		if v.pos < v.stationListLen-1 {
 			v.pos++
 		}
 	}
-	//~ tune()
 }
 
-func (v *RadioState) priorTune() {
+// priorTune 選局
+func (v *RadioState) PriorTune() {
 	if v.radioEnable {
 		if v.pos > 0 {
 			v.pos--
 		}
 	}
-	//~ tune()
+}
+
+// TransitionState 遷移時に一度だけ実行される動作
+func (v *RadioState) TransitionState(s StateCode) {
+	// 現在のモードの後始末
+	switch v.currState {
+	case stateTuneMode:
+		infomation.Scroll()
+	}
+
+	// 新しく遷移するモードの初期化処理
+	switch s {
+	case stateNormalMode:
+		if v.radioEnable {
+			// ラジオが鳴っていれば入力待ちからボリューム操作へ遷移する
+			s = stateVolumeSet
+		}
+	case stateTuneMode:
+		infomation.Fix()
+	}
+	
+	v.currState = s
+	v.ChangeColor(s)
 }
 
 // 各モードにおけるボタンへの機能割当
@@ -236,10 +256,10 @@ func (v *RadioState) handleAlarmHourSet(btn ButtonCode) {
 	switch btn {
 	case BtnStationReForward:
 		v.AlarmTimeInc()
-		infomation.ShowClock(v.GetTokeiState())
+		lcd.PrintWithPos(0, uint8(1), []byte(v.GetStateString(1)))
 	case BtnStationReBackward:
 		v.AlarmTimeDec()
-		infomation.ShowClock(v.GetTokeiState())
+		lcd.PrintWithPos(0, uint8(1), []byte(v.GetStateString(1)))
 	case BtnStationReButton:
 		v.TransitionState(stateAlarmMinSet)
 	case BtnStationReButtonLong:
@@ -252,10 +272,10 @@ func (v *RadioState) handleAlarmMinSet(btn ButtonCode) {
 	switch btn {
 	case BtnStationReForward:
 		v.AlarmTimeInc()
-		infomation.ShowClock(v.GetTokeiState())
+		lcd.PrintWithPos(0, uint8(1), []byte(v.GetStateString(1)))
 	case BtnStationReBackward:
 		v.AlarmTimeDec()
-		infomation.ShowClock(v.GetTokeiState())
+		lcd.PrintWithPos(0, uint8(1), []byte(v.GetStateString(1)))
 	case BtnStationReButton:
 		v.TransitionState(stateSelectFunction)
 	case BtnStationReButtonLong:
@@ -287,10 +307,10 @@ func (v *RadioState) handleSelectFunction(btn ButtonCode) {
 func (v *RadioState) handleTuneMode(btn ButtonCode) {
 	switch btn {
 	case BtnStationReForward:
-		radioState.nextTune()
+		radioState.NextTune()
 		infomation.Update(0, v.CurrentStationName())
 	case BtnStationReBackward:
-		radioState.priorTune()
+		radioState.PriorTune()
 		infomation.Update(0, v.CurrentStationName())
 	case BtnStationReButton:
 		tune()

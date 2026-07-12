@@ -65,12 +65,13 @@ var (
 		0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF}
 )
 
-func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
-	var rv []byte
-	rv = *s
+//~ func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
+func (d *AQM0802A) UTF8toOLED(m string) ([]byte, int) {
+	rv := []byte(m)
 	l := len(rv)
 	pos := 0
 	pass_count := 0
+
 	for i, v := range rv {
 		if pass_count > 0 {
 			pass_count--
@@ -150,7 +151,7 @@ func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
 		rv[pos] = v
 		pos++
 	}
-	return pos
+	return rv[:pos], pos
 }
 
 func New(bus *i2c.I2C, reset_pin int, backlight_pin int) *AQM0802A {

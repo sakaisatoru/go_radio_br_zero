@@ -33,15 +33,17 @@ func (v *InfomationDisplay) Update(line int, s string) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	t := []byte(s)
-	l := lcd.UTF8toOLED(&t)
+	r, l := lcd.UTF8toOLED(s)
+	t := make([]byte, 0, l + 2 + 8)
+	t = append(t, r[:l]...)
 	if l > 8 {
-		t = append(t[:l], append([]byte("  "), t[:8]...)...)
+		t = append(t, "  "...)
+		t = append(t, r[:8]...)
 	} else {
-		t = append(t[:l], []byte("        ")...)[:8]
+		t = append(t, "        "...)
 	}
 	if line == 0 {
-		if l > 8 && !v.isScroll {
+		if l <= 8 {
 			v.buff = t[:8]
 		} else {
 			v.buff = t
@@ -61,9 +63,16 @@ func (v *InfomationDisplay) ShowError(e int) {
 
 // ShowClock 時計を表示する。バッファされている文字列があれば1行目に表示する。
 func (v *InfomationDisplay) ShowClock(alarmflags string) {
-	var c, tm, dt string
+	var c, dt string
+
 	mu.Lock()
 	defer mu.Unlock()
+
+	if len(alarmflags) > 2 {
+		// フラグ以外のもの（アラーム時刻等）が含まれていればそのまま表示して終わる。
+		lcd.PrintWithPos(0, 1, []byte(alarmflags))
+		return
+	}
 
 	n := time.Now().In(jst) //Local()
 	if colon == 0 {
@@ -72,25 +81,32 @@ func (v *InfomationDisplay) ShowClock(alarmflags string) {
 		c = ":"
 	}
 
-	tm = alarmflags + " " + n.Format("15") + c + n.Format("04")
-	lcd.PrintWithPos(0, 1, []byte(tm))
+	alarmflags = alarmflags + " " + n.Format("15") + c + n.Format("04")
+	lcd.PrintWithPos(0, 1, []byte(alarmflags))
 
 	if !radioState.IsRadioEnable() {
-		//~ dt := fmt.Sprintf("%02d-%02d %2.2s", n.Month(), n.Day(), n.Weekday())
+		// ラジオが切られていたら日付を表示して終わる
 		dt = n.Format("01-02") + " " + displayWeekday[n.Weekday()]
 		lcd.PrintWithPos(0, 0, []byte(dt))
 		return
 	}
 
-	if v.buffLen <= 8 || !v.isScroll {
-		lcd.PrintWithPos(0, 0, v.buff)
-	} else {
+	if v.isScroll && v.buffLen > 8 {
 		lcd.PrintWithPos(0, 0, v.buff[v.buffPos:v.buffPos+8])
 		v.buffPos++
-		if v.buffPos >= v.buffLen-8 {
+		if v.buffPos >= v.buffLen - 8 {
 			v.buffPos = 0
 		}
+		return
 	}
+
+	l := 0
+	if v.buffLen > 8 {
+		l = 8
+	} else {
+		l = v.buffLen
+	}
+	lcd.PrintWithPos(0, 0, v.buff[:l])
 }
 
 // isScroll 1行目のスクロールするかどうかを返す。
