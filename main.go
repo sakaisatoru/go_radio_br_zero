@@ -69,9 +69,9 @@ var (
 	lcd         *aqm0802a.AQM0802A
 	radikoproxy *netradio.RadikoProxy
 	radioState  *RadioState
-	infomation *InfomationDisplay
-	colon      uint8
-	errmessage = [...]string{
+	infomation  *InfomationDisplay
+	colon       uint8
+	errmessage  = [...]string{
 		"HUP     ",   // HUP
 		"mpv ｴﾗｰ  ",  //
 		"mpv ﾌｫﾙﾄ ",  //
@@ -136,9 +136,6 @@ func shutdown() {
 	time.Sleep(700 * time.Millisecond)
 	cmd := exec.Command("/sbin/poweroff", "")
 	cmd.Start()
-	afampDisable() // AF amp disable
-	lcd.DisplayOff()
-	lcd.LightOff()
 }
 
 func main() {
@@ -185,6 +182,8 @@ func main() {
 	lcd.Init()
 	infomation.Update(0, Version)
 	lcd.OneShotLight()
+	defer lcd.DisplayOff()
+	defer lcd.LightOff()
 
 	// rotaryencoder
 	rencoder := rotaryencoder.New(pinReB, pinReA,
@@ -270,16 +269,13 @@ func main() {
 	go rencoder.DetectLoop(btnREcode)
 
 	radioState.GreenOn()
+	defer afampDisable()
 	for {
 		select {
 		case <-signals:
 			if err = os.Remove(MpvSocketPath); err != nil {
 				log.Println(err)
 			}
-			afampDisable() // AF amp disable
-			lcd.DisplayOff()
-			i2c.Close()
-			lcd.LightOff()
 			signal.Stop(signals) // close()だとpanicする事がある、らしい
 			return
 
@@ -301,7 +297,7 @@ func main() {
 
 		case r := <-btncode:
 			if radioState.Dispatch(r) {
-				// shutdown
+				// 処理中断で終了する。defer を生かすため return で終わる。
 				return
 			}
 		}

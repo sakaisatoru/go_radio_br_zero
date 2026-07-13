@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/sakaisatoru/go_mpvradio/netradio"
 	"github.com/sakaisatoru/go_radio_raspi/mpvctl"
-		"local.packages/volume"
+	"local.packages/volume"
 	"time"
 )
 
@@ -26,6 +26,10 @@ const (
 	tokeiSleepOn
 )
 
+const (
+	stationRestoreDuration time.Duration = 5000 * time.Millisecond
+)
+
 type RadioState struct {
 	Led
 	currState      StateCode
@@ -37,10 +41,11 @@ type RadioState struct {
 	stationList    []netradio.StationInfo
 	stationListLen int
 	tokeiState     TokeiState
+	restoreTimer   *time.Timer
 }
 
 func RadioStateNew() *RadioState {
-	return &RadioState{
+	v := &RadioState{
 		currState:      stateNormalMode,
 		AlarmTime:      time.Date(2026, time.July, 5, 4, 50, 0, 0, time.UTC),
 		TurnOffTime:    time.Unix(0, 0).UTC(),
@@ -49,6 +54,14 @@ func RadioStateNew() *RadioState {
 		stationListLen: 0,
 		tokeiState:     tokeiNormal,
 	}
+
+	// 選局中に一定時間確定しなかったら元の局を表示する
+	v.restoreTimer = time.AfterFunc(stationRestoreDuration, func() {
+		v.pos = v.lastpos
+		infomation.Update(0, v.CurrentStationName())
+	})
+	v.restoreTimer.Stop()
+	return v
 }
 
 // GetTokeiState アラームやスリープの設定状況を文字列で返す。
@@ -217,7 +230,7 @@ func (v *RadioState) TransitionState(s StateCode) {
 	// 現在のモードの後始末
 	//~ switch v.currState {
 	//~ case stateTuneMode:
-		//~ infomation.Scroll()
+	//~ infomation.Scroll()
 	//~ }
 
 	// 新しく遷移するモードの初期化処理
@@ -239,7 +252,6 @@ func (v *RadioState) TransitionState(s StateCode) {
 
 // handleNormalMode ホームポジション
 func (v *RadioState) handleNormalMode(btn ButtonCode) {
-	
 	switch btn {
 	case BtnStationReForward, BtnStationReButton:
 		tune()
@@ -251,12 +263,10 @@ func (v *RadioState) handleNormalMode(btn ButtonCode) {
 	case BtnStationReButtonRepeat:
 		// （空きファンクション）
 	}
-	
 }
 
 // handleAlarmHourSet アラームセット（時）
 func (v *RadioState) handleAlarmHourSet(btn ButtonCode) {
-	
 	switch btn {
 	case BtnStationReForward:
 		v.AlarmTimeInc()
@@ -269,12 +279,10 @@ func (v *RadioState) handleAlarmHourSet(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateNormalMode)
 	}
-	
 }
 
 // handleAlarmMinSet アラームセット（分）
 func (v *RadioState) handleAlarmMinSet(btn ButtonCode) {
-	
 	switch btn {
 	case BtnStationReForward:
 		v.AlarmTimeInc()
@@ -287,12 +295,10 @@ func (v *RadioState) handleAlarmMinSet(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateNormalMode)
 	}
-	
 }
 
 // handleSelectFunction アラームやスリープの設定
 func (v *RadioState) handleSelectFunction(btn ButtonCode) {
-	
 	switch btn {
 	case BtnStationReButton:
 		if v.tokeiState == 3 {
@@ -309,31 +315,30 @@ func (v *RadioState) handleSelectFunction(btn ButtonCode) {
 	case BtnStationReButtonLong:
 		v.TransitionState(stateNormalMode)
 	}
-	
 }
 
 // handleTuneMode 選局
 func (v *RadioState) handleTuneMode(btn ButtonCode) {
-	
+	v.restoreTimer.Stop()
 	switch btn {
 	case BtnStationReForward:
 		radioState.NextTune()
 		infomation.Update(0, v.CurrentStationName())
+		v.restoreTimer.Reset(stationRestoreDuration)
 	case BtnStationReBackward:
 		radioState.PriorTune()
 		infomation.Update(0, v.CurrentStationName())
+		v.restoreTimer.Reset(stationRestoreDuration)
 	case BtnStationReButton:
 		tune()
 		v.TransitionState(stateVolumeSet)
 	case BtnStationReButtonLong:
 		v.TransitionState(stateSelectFunction)
 	}
-	
 }
 
 // handleVolumeSet 音量調整
 func (v *RadioState) handleVolumeSet(btn ButtonCode) {
-	
 	switch btn {
 	case BtnStationReForward:
 		if !radioState.IsRadioEnable() {
@@ -356,7 +361,6 @@ func (v *RadioState) handleVolumeSet(btn ButtonCode) {
 		mpvctl.Stop()
 		v.TransitionState(stateNormalMode)
 	}
-	
 }
 
 // handleGlovalEvent モードに関係なく優先的に実行される可能性のある処理
@@ -368,7 +372,7 @@ func (v *RadioState) handleGlovalEvent(btn ButtonCode) bool {
 	return false
 }
 
-// Dispatch 処理の切り替えを行う
+// Dispatch 処理の切り替えを行う ループを継続する場合は false、中断する場合は true を返す
 func (v *RadioState) Dispatch(btn ButtonCode) bool {
 	if v.handleGlovalEvent(btn) {
 		// 優先処理が実行されていれば終わる

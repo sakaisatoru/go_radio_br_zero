@@ -6,9 +6,9 @@ import (
 )
 
 var (
-	volume       int8 = 0
-	visible      bool = true
-	visibleSpan  time.Duration = 700 * time.Millisecond
+	volume      int8          = 0
+	visible     bool          = true
+	visibleSpan time.Duration = 700 * time.Millisecond
 )
 
 func IsVisible() bool {

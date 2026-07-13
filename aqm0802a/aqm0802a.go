@@ -10,7 +10,8 @@ import (
 )
 
 const (
-	i2c_SLAVE = 0x0000
+	i2c_SLAVE                         = 0x0000
+	durationOfBackLight time.Duration = 20 * time.Second
 )
 
 type Config struct {
@@ -65,7 +66,7 @@ var (
 		0xD8, 0xD9, 0xDA, 0xDB, 0xDC, 0xDD, 0xDE, 0xDF}
 )
 
-//~ func (d *AQM0802A) UTF8toOLED(s *[]byte) int {
+// UTF8toOLED 文字列中のコードをLCD固有のコードへ変換する
 func (d *AQM0802A) UTF8toOLED(m string) ([]byte, int) {
 	rv := []byte(m)
 	l := len(rv)
@@ -161,7 +162,7 @@ func New(bus *i2c.I2C, reset_pin int, backlight_pin int) *AQM0802A {
 		pin_backlight: backlight_pin,
 		isLightOn:     false,
 	}
-	d.lightTimer = time.AfterFunc(10*time.Second, d.LightOff)
+	d.lightTimer = time.AfterFunc(durationOfBackLight, d.LightOff)
 	return &d
 }
 
@@ -218,7 +219,7 @@ func (d *AQM0802A) OneShotLight() {
 	// ここに至るまでにタイマーが発動して消灯している可能性があるので
 	// 再度フラグを調べる
 	if d.isLightOn {
-		d.lightTimer.Reset(10 * time.Second)
+		d.lightTimer.Reset(durationOfBackLight)
 	}
 }
 
