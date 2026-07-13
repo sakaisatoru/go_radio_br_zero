@@ -121,24 +121,28 @@ func (v *RadioState) GetStateString(c uint8) string {
 
 // TokeiCheck アラームおよびスリープ時刻をチェックしてそれぞれを起動する
 func (v *RadioState) TokeiCheck() {
-	if (v.currState != stateAlarmHourSet) && (v.currState != stateAlarmMinSet) {
-		if (v.tokeiState & tokeiAlarmOn) != 0 {
-			// アラーム
-			n := time.Now()
-			if v.AlarmTime.Hour() == n.Hour() &&
-				v.AlarmTime.Minute() == n.Minute() {
-				v.tokeiState ^= tokeiAlarmOn
-				tune()
-			}
+	if v.currState == stateAlarmHourSet ||
+		v.currState == stateAlarmMinSet ||
+		v.currState == stateSelectFunction {
+		return
+	}
+	if (v.tokeiState & tokeiAlarmOn) == tokeiAlarmOn {
+		// アラーム
+		n := time.Now().In(jst)
+		if v.AlarmTime.Hour() == n.Hour() &&
+			v.AlarmTime.Minute() == n.Minute() {
+			v.tokeiState ^= tokeiAlarmOn
+			tune()
+			v.TransitionState(stateVolumeSet)
 		}
-		if (v.tokeiState & tokeiSleepOn) != 0 {
-			// スリープ
-			n := time.Now()
-			if v.TurnOffTime.Hour() == n.Hour() &&
-				v.TurnOffTime.Minute() == n.Minute() {
-				v.tokeiState ^= tokeiSleepOn
-				mpvctl.Stop()
-			}
+	}
+	if (v.tokeiState & tokeiSleepOn) == tokeiSleepOn {
+		// スリープ
+		n := time.Now().In(jst)
+		if v.TurnOffTime.Hour() == n.Hour() &&
+			v.TurnOffTime.Minute() == n.Minute() {
+			v.tokeiState ^= tokeiSleepOn
+			mpvctl.Stop()
 		}
 	}
 }
@@ -301,14 +305,14 @@ func (v *RadioState) handleAlarmMinSet(btn ButtonCode) {
 func (v *RadioState) handleSelectFunction(btn ButtonCode) {
 	switch btn {
 	case BtnStationReButton:
-		if v.tokeiState == 3 {
+		if v.tokeiState == (tokeiAlarmOn | tokeiSleepOn) {
 			v.tokeiState = 0
 			v.TransitionState(stateAlarmHourSet)
 			break
 		}
 		v.tokeiState++
-		v.tokeiState &= 3
-		if (v.tokeiState & tokeiSleepOn) != 0 {
+		v.tokeiState &= (tokeiAlarmOn | tokeiSleepOn)
+		if (v.tokeiState & tokeiSleepOn) == tokeiSleepOn {
 			// スリープ時刻の設定を行う
 			v.TurnOffTime = time.Now().Add(30 * time.Minute)
 		}
