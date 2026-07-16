@@ -21,7 +21,7 @@ import (
 const (
 	stationListFile string = "/home/sakai/program/radio.m3u"
 	MpvSocketPath   string = "/run/mpvsocket"
-	Version         string = "ﾗｼﾞｵv2.x"
+	Version         string = "ﾗｼﾞｵv2.8"
 )
 
 type ButtonCode int
