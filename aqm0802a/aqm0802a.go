@@ -2,9 +2,10 @@
 package aqm0802a
 
 import (
-	"fmt"
 	"github.com/davecheney/i2c"
 	"github.com/stianeikeland/go-rpio/v4"
+	"log"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -182,8 +183,8 @@ func (d *AQM0802A) Init() {
 			time.Sleep(28 * time.Microsecond) // > 26.3uS
 		}
 		if err != nil {
-			fmt.Printf("%02X ", init[i])
-			fmt.Println(err)
+			log.Println(strconv.FormatInt(int64(init[i]), 16))
+			log.Println(err)
 		}
 	}
 	time.Sleep(2 * time.Millisecond)

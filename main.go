@@ -244,7 +244,6 @@ func main() {
 	mpvret := make(chan string)
 	// mpvからの応答を選別するフィルタ
 	go mpvctl.Recv(mpvret, func(ms mpvctl.MpvIRC) (string, bool) {
-		//~ fmt.Printf("%#v\n",ms)
 		if radioState.IsRadioEnable() {
 			if ms.Event == "property-change" {
 				if ms.Name == "metadata/by-key/icy-title" {
