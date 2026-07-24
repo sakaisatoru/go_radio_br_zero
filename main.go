@@ -4,9 +4,9 @@ import (
 	"github.com/davecheney/i2c"
 	"github.com/sakaisatoru/go_mpvradio/netradio"
 	"github.com/sakaisatoru/go_radio_raspi/mpvctl"
-	"github.com/sakaisatoru/go_radio_raspi/rotaryencoder"
 	"github.com/stianeikeland/go-rpio/v4"
 	"local.packages/aqm0802a"
+	"local.packages/rotaryencoder"
 	"local.packages/volume"
 	"log"
 	"net"
@@ -21,7 +21,7 @@ import (
 const (
 	stationListFile string = "/home/sakai/program/radio.m3u"
 	MpvSocketPath   string = "/run/mpvsocket"
-	Version         string = "ﾗｼﾞｵv2.8"
+	Version         string = "ﾗｼﾞｵv2.9"
 )
 
 type ButtonCode int
